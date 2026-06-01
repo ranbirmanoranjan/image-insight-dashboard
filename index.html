@@ -252,24 +252,27 @@ function filteredMain(){
 }
 
 function aggregated(rows){
-  return rows.reduce((acc,d)=>({
-    Total_Images: (clean(acc.Total_Images)||0)+(clean(d.Total_Images)||0),
-    Total_SKUs: (clean(acc.Total_SKUs)||0)+(clean(d.Total_SKUs)||0),
-    'Total Active Enterprises': (clean(acc['Total Active Enterprises'])||0)+(clean(d['Total Active Enterprises'])||0),
-    'Total Active Rooftops': (clean(acc['Total Active Rooftops'])||0)+(clean(d['Total Active Rooftops'])||0),
-    Avg_Image_TAT_Hours: ((clean(acc.Avg_Image_TAT_Hours)||0)+(clean(d.Avg_Image_TAT_Hours)||0))/2,
-    Avg_SKU_TAT_Hours: ((clean(acc.Avg_SKU_TAT_Hours)||0)+(clean(d.Avg_SKU_TAT_Hours)||0))/2,
-    'QC Fix Images': (clean(acc['QC Fix Images'])||0)+(clean(d['QC Fix Images'])||0),
-    'QC Fix %': ((clean(acc['QC Fix %'])||0)+(clean(d['QC Fix %'])||0))/2,
-    'Manual Fix': (clean(acc['Manual Fix'])||0)+(clean(d['Manual Fix'])||0),
-    'Manual Fix %': ((clean(acc['Manual Fix %'])||0)+(clean(d['Manual Fix %'])||0))/2,
-    true_accuracy: ((clean(acc.true_accuracy)||0)+(clean(d.true_accuracy)||0))/2,
-    post_qc_tool_accuracy: ((clean(acc.post_qc_tool_accuracy)||0)+(clean(d.post_qc_tool_accuracy)||0))/2,
-    New_Enterprises_Added: (clean(acc.New_Enterprises_Added)||0)+(clean(d.New_Enterprises_Added)||0),
-    New_Rooftops_Added: (clean(acc.New_Rooftops_Added)||0)+(clean(d.New_Rooftops_Added)||0),
-    Total_Contracted_ARR: (clean(acc.Total_Contracted_ARR)||0)+(clean(d.Total_Contracted_ARR)||0),
-    Month_Type: d.Month_Type
-  }),{});
+  if(!rows.length) return {};
+  if(rows.length===1) return rows[0];
+  const n=rows.length;
+  return {
+    Total_Images: rows.reduce((s,d)=>s+clean(d.Total_Images),0),
+    Total_SKUs: rows.reduce((s,d)=>s+clean(d.Total_SKUs),0),
+    'Total Active Enterprises': rows.reduce((s,d)=>s+clean(d['Total Active Enterprises']),0),
+    'Total Active Rooftops': rows.reduce((s,d)=>s+clean(d['Total Active Rooftops']),0),
+    Avg_Image_TAT_Hours: rows.reduce((s,d)=>s+clean(d.Avg_Image_TAT_Hours),0)/n,
+    Avg_SKU_TAT_Hours: rows.reduce((s,d)=>s+clean(d.Avg_SKU_TAT_Hours),0)/n,
+    'QC Fix Images': rows.reduce((s,d)=>s+clean(d['QC Fix Images']),0),
+    'QC Fix %': rows.reduce((s,d)=>s+clean(d['QC Fix %']),0)/n,
+    'Manual Fix': rows.reduce((s,d)=>s+clean(d['Manual Fix']),0),
+    'Manual Fix %': rows.reduce((s,d)=>s+clean(d['Manual Fix %']),0)/n,
+    true_accuracy: rows.reduce((s,d)=>s+clean(d.true_accuracy),0)/n,
+    post_qc_tool_accuracy: rows.reduce((s,d)=>s+clean(d.post_qc_tool_accuracy),0)/n,
+    New_Enterprises_Added: rows.reduce((s,d)=>s+clean(d.New_Enterprises_Added),0),
+    New_Rooftops_Added: rows.reduce((s,d)=>s+clean(d.New_Rooftops_Added),0),
+    Total_Contracted_ARR: rows.reduce((s,d)=>s+clean(d.Total_Contracted_ARR),0),
+    Month_Type: rows[0].Month_Type
+  };
 }
 
 function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={};}
