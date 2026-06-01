@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Spyne · Image Insights Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -517,9 +518,51 @@ function render() {
 function sel(m) { activeMonth = m; render(); }
 function destroyCharts() { Object.values(charts).forEach(c=>c?.destroy()); charts={}; }
 
+// Register datalabels plugin globally
+Chart.register(ChartDataLabels);
+
+const LABEL_BAR = {
+  display: true,
+  anchor: 'end', align: 'end',
+  color: '#3D3A5C',
+  font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' },
+  formatter: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : v % 1 === 0 ? v : v.toFixed(1),
+  padding: { bottom: 2 }
+};
+
+const LABEL_LINE = {
+  display: true,
+  anchor: 'top', align: 'top',
+  color: '#3D3A5C',
+  font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' },
+  formatter: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : v % 1 === 0 ? v : v.toFixed(2),
+  padding: { bottom: 4 }
+};
+
+const LABEL_PCT = {
+  display: true,
+  anchor: 'top', align: 'top',
+  color: '#3D3A5C',
+  font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' },
+  formatter: v => v.toFixed(2)+'%',
+  padding: { bottom: 4 }
+};
+
+const LABEL_BAR_PCT = {
+  display: true,
+  anchor: 'end', align: 'end',
+  color: '#3D3A5C',
+  font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' },
+  formatter: v => v.toFixed(2)+'%',
+  padding: { bottom: 2 }
+};
+
 const OPTS = {
   responsive:true, maintainAspectRatio:false,
-  plugins:{ legend:{ labels:{ color:'#7B7A9A', font:{family:'Plus Jakarta Sans',size:11}, boxWidth:12, padding:14 }}},
+  plugins:{
+    legend:{ labels:{ color:'#7B7A9A', font:{family:'Plus Jakarta Sans',size:11}, boxWidth:12, padding:14 }},
+    datalabels: { display: false } // default off, override per chart
+  },
   scales:{
     x:{ ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:11}}, grid:{color:'#F0EDF8'} },
     y:{ ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:11}}, grid:{color:'#F0EDF8'} }
@@ -532,37 +575,43 @@ function buildCharts() {
 
   charts.vol = new Chart(document.getElementById('cVolume'),{
     type:'bar', data:{labels, datasets:[
-      {label:'Images', data:rev.map(d=>clean(d.Total_Images)), backgroundColor:'#6B2FD9', borderRadius:5},
-      {label:'SKUs',   data:rev.map(d=>clean(d.Total_SKUs)),   backgroundColor:'#C4B5FD', borderRadius:5}
-    ]}, options:{...OPTS}
+      {label:'Images', data:rev.map(d=>clean(d.Total_Images)), backgroundColor:'#6B2FD9', borderRadius:5, datalabels:LABEL_BAR},
+      {label:'SKUs',   data:rev.map(d=>clean(d.Total_SKUs)),   backgroundColor:'#C4B5FD', borderRadius:5, datalabels:LABEL_BAR}
+    ]}, options:{...OPTS, plugins:{...OPTS.plugins, datalabels:{display:true}},
+      layout:{ padding:{ top: 24 } }}
   });
 
   charts.acc = new Chart(document.getElementById('cAccuracy'),{
     type:'line', data:{labels, datasets:[
-      {label:'True Accuracy %',    data:rev.map(d=>clean(d.true_accuracy)),         borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.08)',  tension:0.4, fill:true, pointBackgroundColor:'#059669', pointRadius:4},
-      {label:'Post QC Accuracy %', data:rev.map(d=>clean(d.post_qc_tool_accuracy)), borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.05)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:4}
-    ]}, options:{...OPTS, scales:{...OPTS.scales, y:{...OPTS.scales.y, min:80, max:100}}}
+      {label:'True Accuracy %',    data:rev.map(d=>clean(d.true_accuracy)),         borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.08)',  tension:0.4, fill:true, pointBackgroundColor:'#059669', pointRadius:5, datalabels:LABEL_PCT},
+      {label:'Post QC Accuracy %', data:rev.map(d=>clean(d.post_qc_tool_accuracy)), borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.05)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:5, datalabels:{...LABEL_PCT, align:'bottom', anchor:'bottom'}}
+    ]}, options:{...OPTS, plugins:{...OPTS.plugins, datalabels:{display:true}},
+      layout:{ padding:{ top: 24, bottom: 24 } },
+      scales:{...OPTS.scales, y:{...OPTS.scales.y, min:80, max:100}}}
   });
 
   charts.tat = new Chart(document.getElementById('cTat'),{
     type:'line', data:{labels, datasets:[
-      {label:'Image TAT (hrs)', data:rev.map(d=>clean(d.Avg_Image_TAT_Hours)), borderColor:'#D97706', backgroundColor:'rgba(217,119,6,0.08)',   tension:0.4, fill:true, pointBackgroundColor:'#D97706', pointRadius:4},
-      {label:'SKU TAT (hrs)',   data:rev.map(d=>clean(d.Avg_SKU_TAT_Hours)),   borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.06)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:4}
-    ]}, options:{...OPTS}
+      {label:'Image TAT (hrs)', data:rev.map(d=>clean(d.Avg_Image_TAT_Hours)), borderColor:'#D97706', backgroundColor:'rgba(217,119,6,0.08)',   tension:0.4, fill:true, pointBackgroundColor:'#D97706', pointRadius:5, datalabels:LABEL_LINE},
+      {label:'SKU TAT (hrs)',   data:rev.map(d=>clean(d.Avg_SKU_TAT_Hours)),   borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.06)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:5, datalabels:{...LABEL_LINE, align:'bottom', anchor:'bottom'}}
+    ]}, options:{...OPTS, plugins:{...OPTS.plugins, datalabels:{display:true}},
+      layout:{ padding:{ top: 24, bottom: 24 } }}
   });
 
   charts.fix = new Chart(document.getElementById('cFix'),{
     type:'bar', data:{labels, datasets:[
-      {label:'QC Fix %',     data:rev.map(d=>clean(d['QC Fix %'])),     backgroundColor:'#D97706', borderRadius:5},
-      {label:'Manual Fix %', data:rev.map(d=>clean(d['Manual Fix %'])), backgroundColor:'#DC2626', borderRadius:5}
-    ]}, options:{...OPTS}
+      {label:'QC Fix %',     data:rev.map(d=>clean(d['QC Fix %'])),     backgroundColor:'#D97706', borderRadius:5, datalabels:LABEL_BAR_PCT},
+      {label:'Manual Fix %', data:rev.map(d=>clean(d['Manual Fix %'])), backgroundColor:'#DC2626', borderRadius:5, datalabels:LABEL_BAR_PCT}
+    ]}, options:{...OPTS, plugins:{...OPTS.plugins, datalabels:{display:true}},
+      layout:{ padding:{ top: 24 } }}
   });
 
   charts.ent = new Chart(document.getElementById('cEnt'),{
     type:'line', data:{labels, datasets:[
-      {label:'Active Enterprises', data:rev.map(d=>clean(d['Total Active Enterprises'])), borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.07)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:4},
-      {label:'Active Rooftops',    data:rev.map(d=>clean(d['Total Active Rooftops'])),    borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,0.05)',    tension:0.4, fill:true, pointBackgroundColor:'#2563EB', pointRadius:4}
-    ]}, options:{...OPTS}
+      {label:'Active Enterprises', data:rev.map(d=>clean(d['Total Active Enterprises'])), borderColor:'#6B2FD9', backgroundColor:'rgba(107,47,217,0.07)', tension:0.4, fill:true, pointBackgroundColor:'#6B2FD9', pointRadius:5, datalabels:LABEL_LINE},
+      {label:'Active Rooftops',    data:rev.map(d=>clean(d['Total Active Rooftops'])),    borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,0.05)',    tension:0.4, fill:true, pointBackgroundColor:'#2563EB', pointRadius:5, datalabels:{...LABEL_LINE, align:'bottom', anchor:'bottom'}}
+    ]}, options:{...OPTS, plugins:{...OPTS.plugins, datalabels:{display:true}},
+      layout:{ padding:{ top: 24, bottom: 24 } }}
   });
 }
 
