@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spyne Image Insights Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #1f2330;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --card-glow: rgba(0,229,255,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-area { display: flex; align-items: center; gap: 14px; }
+  .logo-box {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800; color: #000;
+  }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  h1 span { color: var(--accent); }
+  .subtitle { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .last-updated { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { background: var(--accent); color: #000; }
+
+  /* Month selector */
+  .month-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .month-bar label { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-right: 4px; }
+  .month-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .month-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .month-chip.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+
+  /* Section title */
+  .section-title {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    animation: fadeUp 0.5s ease both;
+  }
+  .kpi-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .kpi-card:hover::before { opacity: 1; }
+
+  .kpi-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .kpi-value.accent { color: var(--accent); }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.amber { color: var(--accent3); }
+  .kpi-value.purple { color: #a78bfa; }
+  .kpi-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 6px; }
+
+  /* Charts grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    animation: fadeUp 0.6s ease both;
+  }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 20px; }
+  .chart-wrap { position: relative; height: 240px; }
+
+  /* Table */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+    animation: fadeUp 0.7s ease both;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 12px 14px; font-family: 'DM Mono', monospace; font-size: 12px; white-space: nowrap; }
+  tbody td:first-child { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 13px; color: var(--accent); }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.green { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge.amber { background: rgba(245,158,11,0.15); color: var(--accent3); }
+  .badge.red { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Loading */
+  .loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 60vh; gap: 16px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 13px; }
+
+  /* Error */
+  .error-box {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: var(--red);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    margin: 40px 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    header { flex-direction: column; align-items: flex-start; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="logo-area">
+      <div class="logo-box">S</div>
+      <div>
+        <h1>Spyne <span>Insights</span></h1>
+        <div class="subtitle">Image Processing Dashboard · Automobiles</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="last-updated" id="lastUpdated">—</div>
+      <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Fetching data from ClickHouse...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── helpers ──────────────────────────────────────────────────────────────────
+const fmt = v => {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = typeof v === 'string' ? v.replace(/,/g, '').replace(/%/g,'').trim() : v;
+  const num = parseFloat(n);
+  if (isNaN(num)) return v;
+  return num >= 1_000_000 ? (num/1_000_000).toFixed(2)+'M'
+       : num >= 1_000     ? (num/1_000).toFixed(1)+'K'
+       : num.toString();
+};
+
+const clean = v => {
+  if (!v) return 0;
+  return parseFloat(String(v).replace(/,/g,'').replace(/%/g,'').trim()) || 0;
+};
+
+const pctBadge = v => {
+  const n = clean(v);
+  const cls = n >= 90 ? 'green' : n >= 80 ? 'amber' : 'red';
+  return `<span class="badge ${cls}">${v}</span>`;
+};
+
+let allData = [];
+let activeMonth = null;
+let charts = {};
+
+// ── fetch ─────────────────────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('app').innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Fetching data...</div>
+    </div>`;
+
+  try {
+    // Try the proxy first, fallback to direct Metabase public URL
+    let data;
+    try {
+      const r = await fetch('/api/query');
+      data = await r.json();
+    } catch {
+      const r = await fetch('https://metabase.spyne.ai/public/question/c3814f87-326a-4754-a4f8-072175694f23.json');
+      data = await r.json();
+    }
+
+    // Metabase wraps in {data:{rows,cols}} — handle both formats
+    if (Array.isArray(data)) {
+      allData = data;
+    } else if (data?.data?.rows) {
+      const cols = data.data.cols.map(c => c.name);
+      allData = data.data.rows.map(row =>
+        Object.fromEntries(cols.map((c, i) => [c, row[i]]))
+      );
+    } else {
+      allData = [];
+    }
+
+    if (!allData.length) throw new Error('No data returned');
+
+    activeMonth = allData[0].Month;
+    document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    render();
+  } catch (e) {
+    document.getElementById('app').innerHTML = `
+      <div class="error-box">
+        ⚠ Could not load data: ${e.message}<br><br>
+        Make sure the Metabase public URL is accessible from this domain,<br>
+        or deploy to Vercel so the Edge Function proxy can reach it.
+      </div>`;
+  }
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+function render() {
+  const row = allData.find(d => d.Month === activeMonth) || allData[0];
+  destroyCharts();
+
+  document.getElementById('app').innerHTML = `
+    <!-- Month selector -->
+    <div class="month-bar">
+      <label>MONTH</label>
+      ${allData.map(d => `
+        <div class="month-chip ${d.Month === activeMonth ? 'active' : ''}"
+             onclick="selectMonth('${d.Month}')">${d.Month}</div>
+      `).join('')}
+    </div>
+
+    <!-- KPIs -->
+    <div class="section-title">Key Metrics · ${activeMonth}</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Images</div>
+        <div class="kpi-value accent">${fmt(row.Total_Images)}</div>
+        <div class="kpi-sub">verified images</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total SKUs</div>
+        <div class="kpi-value accent">${fmt(row.Total_SKUs)}</div>
+        <div class="kpi-sub">processed SKUs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Enterprises</div>
+        <div class="kpi-value purple">${fmt(row['Total Active Enterprises'])}</div>
+        <div class="kpi-sub">unique enterprise IDs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Rooftops</div>
+        <div class="kpi-value purple">${fmt(row['Total Active Rooftops'])}</div>
+        <div class="kpi-sub">unique team IDs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Image TAT</div>
+        <div class="kpi-value amber">${clean(row.Avg_Image_TAT_Hours).toFixed(2)}</div>
+        <div class="kpi-sub">avg hours per image</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">SKU TAT</div>
+        <div class="kpi-value amber">${clean(row.Avg_SKU_TAT_Hours).toFixed(2)}</div>
+        <div class="kpi-sub">avg hours per SKU</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">True Accuracy</div>
+        <div class="kpi-value green">${row.true_accuracy}</div>
+        <div class="kpi-sub">pre QC tool</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Post QC Accuracy</div>
+        <div class="kpi-value green">${row.post_qc_tool_accuracy}</div>
+        <div class="kpi-sub">after QC tool</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">QC Fix Images</div>
+        <div class="kpi-value">${fmt(row['QC Fix Images'])}</div>
+        <div class="kpi-sub">${row['QC Fix %']} of total</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Manual Fix</div>
+        <div class="kpi-value">${fmt(row['Manual Fix'])}</div>
+        <div class="kpi-sub">${row['Manual Fix %']} of total</div>
+      </div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="section-title">Trends · Last ${allData.length} Months</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Images & SKUs</div>
+        <div class="chart-sub">monthly volume</div>
+        <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Accuracy Trends</div>
+        <div class="chart-sub">true vs post-QC accuracy (%)</div>
+        <div class="chart-wrap"><canvas id="accuracyChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">TAT Trends</div>
+        <div class="chart-sub">avg hours per image & SKU</div>
+        <div class="chart-wrap"><canvas id="tatChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">QC Fix vs Manual Fix</div>
+        <div class="chart-sub">correction breakdown (%)</div>
+        <div class="chart-wrap"><canvas id="fixChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Enterprise / Rooftop trend -->
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Active Enterprises & Rooftops</div>
+        <div class="chart-sub">monthly active counts</div>
+        <div class="chart-wrap"><canvas id="entChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="section-title">Full Data Table</div>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Total Images</th>
+            <th>Total SKUs</th>
+            <th>Enterprises</th>
+            <th>Rooftops</th>
+            <th>Img TAT (hrs)</th>
+            <th>SKU TAT (hrs)</th>
+            <th>True Accuracy</th>
+            <th>Post QC Accuracy</th>
+            <th>QC Fix</th>
+            <th>QC Fix %</th>
+            <th>Manual Fix</th>
+            <th>Manual Fix %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allData.map(d => `
+            <tr>
+              <td>${d.Month}</td>
+              <td>${fmt(d.Total_Images)}</td>
+              <td>${fmt(d.Total_SKUs)}</td>
+              <td>${fmt(d['Total Active Enterprises'])}</td>
+              <td>${fmt(d['Total Active Rooftops'])}</td>
+              <td>${clean(d.Avg_Image_TAT_Hours).toFixed(2)}</td>
+              <td>${clean(d.Avg_SKU_TAT_Hours).toFixed(2)}</td>
+              <td>${pctBadge(d.true_accuracy)}</td>
+              <td>${pctBadge(d.post_qc_tool_accuracy)}</td>
+              <td>${fmt(d['QC Fix Images'])}</td>
+              <td>${d['QC Fix %']}</td>
+              <td>${fmt(d['Manual Fix'])}</td>
+              <td>${d['Manual Fix %']}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  buildCharts();
+}
+
+function selectMonth(m) {
+  activeMonth = m;
+  render();
+}
+
+// ── charts ────────────────────────────────────────────────────────────────────
+const MONTHS = () => [...allData].reverse().map(d => d.Month);
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#6b7280', font: { family: 'DM Mono', size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1f2330' } },
+    y: { ticks: { color: '#6b7280', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1f2330' } }
+  }
+};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c?.destroy());
+  charts = {};
+}
+
+function buildCharts() {
+  const rev = [...allData].reverse();
+  const labels = rev.map(d => d.Month);
+
+  // Volume
+  charts.volume = new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Images', data: rev.map(d => clean(d.Total_Images)), backgroundColor: 'rgba(0,229,255,0.7)', borderRadius: 4 },
+        { label: 'SKUs', data: rev.map(d => clean(d.Total_SKUs)), backgroundColor: 'rgba(124,58,237,0.7)', borderRadius: 4 }
+      ]
+    },
+    options: { ...chartDefaults }
+  });
+
+  // Accuracy
+  charts.accuracy = new Chart(document.getElementById('accuracyChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'True Accuracy', data: rev.map(d => clean(d.true_accuracy)), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#10b981' },
+        { label: 'Post QC Accuracy', data: rev.map(d => clean(d.post_qc_tool_accuracy)), borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.05)', tension: 0.4, fill: true, pointBackgroundColor: '#00e5ff' }
+      ]
+    },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 80, max: 100 } } }
+  });
+
+  // TAT
+  charts.tat = new Chart(document.getElementById('tatChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Image TAT', data: rev.map(d => clean(d.Avg_Image_TAT_Hours)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#f59e0b' },
+        { label: 'SKU TAT', data: rev.map(d => clean(d.Avg_SKU_TAT_Hours)), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#a78bfa' }
+      ]
+    },
+    options: { ...chartDefaults }
+  });
+
+  // Fix %
+  charts.fix = new Chart(document.getElementById('fixChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'QC Fix %', data: rev.map(d => clean(d['QC Fix %'])), backgroundColor: 'rgba(245,158,11,0.8)', borderRadius: 4 },
+        { label: 'Manual Fix %', data: rev.map(d => clean(d['Manual Fix %'])), backgroundColor: 'rgba(239,68,68,0.8)', borderRadius: 4 }
+      ]
+    },
+    options: { ...chartDefaults }
+  });
+
+  // Enterprises & Rooftops
+  charts.ent = new Chart(document.getElementById('entChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Active Enterprises', data: rev.map(d => clean(d['Total Active Enterprises'])), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#a78bfa' },
+        { label: 'Active Rooftops', data: rev.map(d => clean(d['Total Active Rooftops'])), borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.05)', tension: 0.4, fill: true, pointBackgroundColor: '#00e5ff' }
+      ]
+    },
+    options: { ...chartDefaults }
+  });
+}
+
+// init
+loadData();
+</script>
+</body>
+</html>
