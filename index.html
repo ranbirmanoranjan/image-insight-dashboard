@@ -192,10 +192,24 @@ const FALLBACK = {
     {team_id:"6e09e7a495",Team_Name:"Netlook Prod Exterior only",Enterprise_Name:"Netlook Prod Exterior only",Customer_Segment:"SMB",Total_SKUs:"42,808",Total_Contracted_ARR:"0"},
     {team_id:"d5265cff82",Team_Name:"Team 1",Enterprise_Name:"carmedia prod",Customer_Segment:"SMB",Total_SKUs:"41,881",Total_Contracted_ARR:"0"},
     {team_id:"057f2df650",Team_Name:"S A C USED CAR TRADING L.L.C",Enterprise_Name:"S A C USED CAR TRADING L.L.C",Customer_Segment:"SMB",Total_SKUs:"38,503",Total_Contracted_ARR:"21,600"}
+  ],
+  newdata: [
+    {Month:"1 Jun, 2026",customer_segment:"SMB",New_Enterprises_Added:"1",New_Rooftops_Added:"1"},
+    {Month:"1 May, 2026",customer_segment:"Ent",New_Enterprises_Added:"23",New_Rooftops_Added:"47"},
+    {Month:"1 May, 2026",customer_segment:"Resellers",New_Enterprises_Added:"3",New_Rooftops_Added:"3"},
+    {Month:"1 May, 2026",customer_segment:"SMB",New_Enterprises_Added:"28",New_Rooftops_Added:"28"},
+    {Month:"1 Apr, 2026",customer_segment:"Ent",New_Enterprises_Added:"29",New_Rooftops_Added:"70"},
+    {Month:"1 Apr, 2026",customer_segment:"Mid",New_Enterprises_Added:"3",New_Rooftops_Added:"3"},
+    {Month:"1 Apr, 2026",customer_segment:"Resellers",New_Enterprises_Added:"3",New_Rooftops_Added:"3"},
+    {Month:"1 Apr, 2026",customer_segment:"SMB",New_Enterprises_Added:"26",New_Rooftops_Added:"32"},
+    {Month:"1 Mar, 2026",customer_segment:"Ent",New_Enterprises_Added:"204",New_Rooftops_Added:"697"},
+    {Month:"1 Mar, 2026",customer_segment:"Mid",New_Enterprises_Added:"34",New_Rooftops_Added:"40"},
+    {Month:"1 Mar, 2026",customer_segment:"Resellers",New_Enterprises_Added:"21",New_Rooftops_Added:"71"},
+    {Month:"1 Mar, 2026",customer_segment:"SMB",New_Enterprises_Added:"273",New_Rooftops_Added:"288"}
   ]
 };
 
-let allData={main:[],enterprises:[],rooftops:[]};
+let allData={main:[],enterprises:[],rooftops:[],newdata:[]};
 let activeSeg='All', activeMonth=null;
 let charts={};
 
@@ -231,11 +245,11 @@ async function loadAll(){
 
   // Filter out epoch zero bad data & empty segments
   const mainClean=(main||FALLBACK.main).filter(d=>!String(d.Month).includes('1970'));
-  const newClean=(newdata||[]).filter(d=>d.customer_segment&&d.customer_segment!=='');
+  allData.newdata=(newdata||[]).filter(d=>d.customer_segment&&d.customer_segment!=='');
 
   // Merge Q4 new enterprise/rooftop data into main by Month+segment
   allData.main=mainClean.map(d=>{
-    const match=newClean.find(n=>n.Month===d.Month&&n.customer_segment===d.customer_segment);
+    const match=allData.newdata.find(n=>n.Month===d.Month&&n.customer_segment===d.customer_segment);
     return {
       ...d,
       New_Enterprises_Added: match?parseInt(String(match.New_Enterprises_Added).replace(/,/g,'')):0,
@@ -350,8 +364,8 @@ function render(){
       <div class="kpi-card ka"><div class="kpi-icon">⏱️</div><div class="kpi-label">SKU TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_SKU_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per SKU</div></div>
       <div class="kpi-card kg"><div class="kpi-icon">🎯</div><div class="kpi-label">True Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.true_accuracy).toFixed(2)}%</div><div class="kpi-sub">pre QC tool</div></div>
       <div class="kpi-card kg"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
-      <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">MTD new clients</div></div>
-      <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">MTD new rooftops</div></div>
+      <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
+      <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
     </div>
 
     <!-- KPI ROW 3 -->
@@ -374,7 +388,7 @@ function render(){
     <div class="sec-label">Overall Trends</div>
     <div class="charts-2">
       <div class="chart-card"><div class="chart-hd"><div class="chart-title">Active Enterprises & Rooftops</div><div class="chart-sub">Monthly active counts (all segments)</div></div><div class="chart-wrap"><canvas id="cEnt"></canvas></div></div>
-      <div class="chart-card"><div class="chart-hd"><div class="chart-title">New Enterprises Added (MTD)</div><div class="chart-sub">New clients not seen in previous months</div></div><div class="chart-wrap"><canvas id="cNew"></canvas></div></div>
+      <div class="chart-card"><div class="chart-hd"><div class="chart-title">New Enterprises & Rooftops Added</div><div class="chart-sub">First seen in each month vs prior months</div></div><div class="chart-wrap"><canvas id="cNew"></canvas></div></div>
     </div>
 
     <!-- TOP 10 TABLES -->
@@ -525,13 +539,17 @@ function buildCharts(){
     options:{...BASE}
   });
 
-  // New enterprises by segment (bar)
-  const mtdMonths=months.filter(m=>allData.main.find(d=>d.Month===m)?.Month_Type==='MTD'||true);
+  // New enterprises by segment (bar) - from Q4 data
+  const newMonths=[...new Set((allData.newdata||[]).map(d=>d.Month))].sort((a,b)=>new Date(a)-new Date(b));
+  const newSegs=[...new Set((allData.newdata||[]).map(d=>d.customer_segment).filter(Boolean))];
   charts.newEnt=new Chart(document.getElementById('cNew'),{
     type:'bar',
-    data:{labels:months,datasets:segs.map(seg=>({
+    data:{labels:newMonths.length?newMonths:months, datasets:newSegs.map(seg=>({
       label:seg,
-      data:months.map(m=>{const r=allData.main.find(d=>d.Month===m&&d.customer_segment===seg);return r?clean(r.New_Enterprises_Added):0;}),
+      data:(newMonths.length?newMonths:months).map(m=>{
+        const r=(allData.newdata||[]).find(d=>d.Month===m&&d.customer_segment===seg);
+        return r?parseInt(String(r.New_Enterprises_Added).replace(/,/g,'')):0;
+      }),
       backgroundColor:SEG_COLORS[seg]||'#999',borderRadius:3
     }))},
     options:{...BASE,scales:{...BASE.scales,x:{...BASE.scales.x,stacked:true},y:{...BASE.scales.y,stacked:true}}}
