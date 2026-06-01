@@ -145,7 +145,8 @@ tbody td:first-child{font-weight:700;color:var(--purple);}
 const URLS = {
   main: 'https://metabase.spyne.ai/public/question/8e926f47-4080-4c6c-ba28-77cb500ccf90.json',
   enterprises: 'https://metabase.spyne.ai/public/question/55f64840-2f96-48c2-aa2b-8333a515f4f2.json',
-  rooftops: 'https://metabase.spyne.ai/public/question/38df9aa6-35be-4a30-bf11-09b4a262b008.json'
+  rooftops: 'https://metabase.spyne.ai/public/question/38df9aa6-35be-4a30-bf11-09b4a262b008.json',
+  newdata: 'https://metabase.spyne.ai/public/question/6b05b3d8-fc78-4e70-bcae-c7ffdab31fc7.json'
 };
 
 // Embedded fallback data
@@ -221,14 +222,26 @@ async function fetchJSON(url){
 async function loadAll(){
   document.getElementById('app').innerHTML=`<div class="loading"><div class="spinner"></div><div class="loading-text">Loading dashboard...</div></div>`;
 
-  const [main,enterprises,rooftops]=await Promise.all([
+  const [main,enterprises,rooftops,newdata]=await Promise.all([
     fetchJSON(URLS.main),
     fetchJSON(URLS.enterprises),
-    fetchJSON(URLS.rooftops)
+    fetchJSON(URLS.rooftops),
+    fetchJSON(URLS.newdata)
   ]);
 
-  // Filter out epoch zero bad data
-  allData.main=(main||FALLBACK.main).filter(d=>!String(d.Month).includes('1970'));
+  // Filter out epoch zero bad data & empty segments
+  const mainClean=(main||FALLBACK.main).filter(d=>!String(d.Month).includes('1970'));
+  const newClean=(newdata||[]).filter(d=>d.customer_segment&&d.customer_segment!=='');
+
+  // Merge Q4 new enterprise/rooftop data into main by Month+segment
+  allData.main=mainClean.map(d=>{
+    const match=newClean.find(n=>n.Month===d.Month&&n.customer_segment===d.customer_segment);
+    return {
+      ...d,
+      New_Enterprises_Added: match?parseInt(String(match.New_Enterprises_Added).replace(/,/g,'')):0,
+      New_Rooftops_Added: match?parseInt(String(match.New_Rooftops_Added).replace(/,/g,'')):0
+    };
+  });
   allData.enterprises=enterprises||FALLBACK.enterprises;
   allData.rooftops=rooftops||FALLBACK.rooftops;
 
@@ -332,12 +345,13 @@ function render(){
 
     <!-- KPI ROW 2 -->
     <div class="sec-label">Quality & Accuracy</div>
-    <div class="kpi-grid">
+    <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);">
       <div class="kpi-card ka"><div class="kpi-icon">⏱️</div><div class="kpi-label">Image TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_Image_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per image</div></div>
       <div class="kpi-card ka"><div class="kpi-icon">⏱️</div><div class="kpi-label">SKU TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_SKU_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per SKU</div></div>
       <div class="kpi-card kg"><div class="kpi-icon">🎯</div><div class="kpi-label">True Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.true_accuracy).toFixed(2)}%</div><div class="kpi-sub">pre QC tool</div></div>
       <div class="kpi-card kg"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
-      <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">new rooftops: ${fmt(agg.New_Rooftops_Added)}</div></div>
+      <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">MTD new clients</div></div>
+      <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">MTD new rooftops</div></div>
     </div>
 
     <!-- KPI ROW 3 -->
