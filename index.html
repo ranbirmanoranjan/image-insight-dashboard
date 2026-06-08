@@ -316,7 +316,7 @@ async function loadAll(){
   allData.enterprises=enterprises||FALLBACK.enterprises;
   allData.rooftops=rooftops||FALLBACK.rooftops;
   // Normalize entByARR - fix 'apld.enterprise_id' column name issue
-  allData.entByARR=(entByARR||[]).map(d=>({
+  allData.entByARR=(entByARR||FALLBACK.entByARR||[]).map(d=>({
     enterprise_id: d['apld.enterprise_id']||d.enterprise_id||'',
     Enterprise_Name: d.Enterprise_Name||d.enterprise_name||'—',
     Customer_Segment: d.Customer_Segment||d.customer_segment||'',
@@ -324,7 +324,7 @@ async function loadAll(){
     Plan_Name: d.Plan_Name||d.plan_name||'—'
   }));
   // Normalize roofByARR
-  allData.roofByARR=(roofByARR||[]).map(d=>({
+  allData.roofByARR=(roofByARR||FALLBACK.roofByARR||[]).map(d=>({
     team_id: d.team_id||'',
     Team_Name: d.Team_Name||d.team_name||'—',
     Enterprise_Name: d.Enterprise_Name||d.enterprise_name||'—',
@@ -332,7 +332,8 @@ async function loadAll(){
     Total_Contracted_ARR: d.Total_Contracted_ARR||d.total_contracted_arr||0,
     Plan_Name: d.Plan_Name||d.plan_name||'—'
   }));
-  allData.csmOB=(csmOB||[]).map(d=>({
+  const rawCsm = csmOB||FALLBACK.csmOB||[];
+  allData.csmOB=rawCsm.map(d=>({
     Owner: d.Owner||d.owner||'—',
     Owner_Type: d.Owner_Type||d.owner_type||'—',
     Total_Enterprises: d.Total_Enterprises||d.total_enterprises||0,
@@ -594,24 +595,24 @@ function render(){
     <div class="sec-label">Top 10 · By CSM / OB Owner</div>
     <div class="table-card" style="margin-bottom:20px;">
       <div class="table-hd">
-        <span class="table-hd-title">Owner Performance (CSM → OB fallback)</span>
-        <span class="table-hd-badge">Automobiles</span>
+        <span class="table-hd-title">Top 10 Enterprises by Account Owner</span>
+        <span class="table-hd-badge">CSM / OB</span>
       </div>
       <div class="tbl-wrap"><table>
         <thead><tr>
           <th>#</th>
-          ${th('Owner','Owner',csmOBSort,'sortCsmOB')}
-          <th>Type</th>
-          <th>Dominant Segment</th>
+          ${th('Account Owner','Owner',csmOBSort,'sortCsmOB')}
+          <th>Role</th>
+          <th>Segment</th>
           ${th('Enterprises','Total_Enterprises',csmOBSort,'sortCsmOB')}
           ${th('Contracted ARR','Total_Contracted_ARR',csmOBSort,'sortCsmOB')}
-          <th>Avg ARR/Enterprise</th>
+          <th>Avg ARR / Ent</th>
         </tr></thead>
         <tbody>${allData.csmOB.length ? sortData(allData.csmOB,csmOBSort).map((d,i)=>{
           const avgARR = d.Total_Enterprises>0 ? d.Total_Contracted_ARR/d.Total_Enterprises : 0;
           return `<tr>
             <td>${i+1}</td>
-            <td style="font-weight:600;color:var(--text);">${d.Owner.split('@')[0]}<br><span style="font-size:10px;color:var(--muted);font-weight:400;">@${d.Owner.split('@')[1]||''}</span></td>
+            <td>${d.Owner.split('@')[0]}</td>
             <td><span class="badge ${d.Owner_Type==='CSM'?'bg-g':'bg-p'}">${d.Owner_Type}</span></td>
             <td>${segChip(d.Customer_Segment||'')}</td>
             <td>${fmt(d.Total_Enterprises)}</td>
