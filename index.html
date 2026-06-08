@@ -146,7 +146,9 @@ const URLS = {
   main: 'https://metabase.spyne.ai/public/question/8e926f47-4080-4c6c-ba28-77cb500ccf90.json',
   enterprises: 'https://metabase.spyne.ai/public/question/55f64840-2f96-48c2-aa2b-8333a515f4f2.json',
   rooftops: 'https://metabase.spyne.ai/public/question/38df9aa6-35be-4a30-bf11-09b4a262b008.json',
-  newdata: 'https://metabase.spyne.ai/public/question/6b05b3d8-fc78-4e70-bcae-c7ffdab31fc7.json'
+  newdata: 'https://metabase.spyne.ai/public/question/6b05b3d8-fc78-4e70-bcae-c7ffdab31fc7.json',
+  entByARR: 'https://metabase.spyne.ai/public/question/99658eb5-f9c6-4e0a-be12-1d38bc593b4e.json',
+  roofByARR: 'https://metabase.spyne.ai/public/question/4d62650a-a385-4d2a-afe5-2fdcd102938f.json'
 };
 
 // Embedded fallback data
@@ -170,16 +172,16 @@ const FALLBACK = {
     {Month:"1 Mar, 2026",customer_segment:"SMB",Total_Images:"708,922",Avg_Image_TAT_Hours:19.72,Total_SKUs:"332,515",Avg_SKU_TAT_Hours:29.82,"Total Active Enterprises":273,"Total Active Rooftops":288,"QC Fix Images":"47,957","QC Fix %":6.76,"Manual Fix":"7,791","Manual Fix %":1.1,true_accuracy:92.14,post_qc_tool_accuracy:98.9,New_Enterprises_Added:0,New_Rooftops_Added:0,Total_Contracted_ARR:"3,307,418.17",Month_Type:"Complete"}
   ],
   enterprises: [
-    {enterprise_id:"6454b95ba",Enterprise_Name:"Asbury Automotive Management L.L.C",Customer_Segment:"Ent",Total_Images:"1,248,595",Total_SKUs:"36,109",Total_Contracted_ARR:"168,396"},
+    {enterprise_id:"6454b95ba",Enterprise_Name:"Asbury Automotive Management L.L.C",Customer_Segment:"Ent",Total_Images:"1,249,489",Total_SKUs:"36,136",Total_Contracted_ARR:"168,396"},
     {enterprise_id:"00d2aafe9",Enterprise_Name:"IM Marketplace GmBH",Customer_Segment:"SMB",Total_Images:"959,356",Total_SKUs:"959,357",Total_Contracted_ARR:"166,500"},
-    {enterprise_id:"9760K371U",Enterprise_Name:"DealerVision.com",Customer_Segment:"Resellers",Total_Images:"892,953",Total_SKUs:"112,870",Total_Contracted_ARR:"145,000"},
-    {enterprise_id:"bd04077c1",Enterprise_Name:"Netlook Prod Exterior only",Customer_Segment:"SMB",Total_Images:"857,901",Total_SKUs:"42,808",Total_Contracted_ARR:"0"},
-    {enterprise_id:"18d200080",Enterprise_Name:"Foto-Ops",Customer_Segment:"Resellers",Total_Images:"793,750",Total_SKUs:"378,019",Total_Contracted_ARR:"222,000"},
-    {enterprise_id:"10bb841f8",Enterprise_Name:"Gettel Automotive Group",Customer_Segment:"Ent",Total_Images:"599,070",Total_SKUs:"19,598",Total_Contracted_ARR:"72,000"},
-    {enterprise_id:"c9368fac4",Enterprise_Name:"Dealer Specialties, LLC",Customer_Segment:"Resellers",Total_Images:"581,734",Total_SKUs:"66,920",Total_Contracted_ARR:"126,000"},
-    {enterprise_id:"QJC7Y1H68",Enterprise_Name:"Bergstrom Automotive",Customer_Segment:"Ent",Total_Images:"450,139",Total_SKUs:"17,972",Total_Contracted_ARR:"76,000"},
-    {enterprise_id:"b733cdf5d",Enterprise_Name:"Jenkins Auto Group",Customer_Segment:"Ent",Total_Images:"436,492",Total_SKUs:"14,331",Total_Contracted_ARR:"105,600"},
-    {enterprise_id:"94eeb2e7a",Enterprise_Name:"Flexicar",Customer_Segment:"Ent",Total_Images:"428,756",Total_SKUs:"16,750",Total_Contracted_ARR:"102,677.22"}
+    {enterprise_id:"9760K371U",Enterprise_Name:"DealerVision.com",Customer_Segment:"Resellers",Total_Images:"893,162",Total_SKUs:"112,870",Total_Contracted_ARR:"145,000"},
+    {enterprise_id:"bd04077c1",Enterprise_Name:"Netlook Prod Exterior only",Customer_Segment:"SMB",Total_Images:"862,809",Total_SKUs:"43,001",Total_Contracted_ARR:"0"},
+    {enterprise_id:"10bb841f8",Enterprise_Name:"Gettel Automotive Group",Customer_Segment:"Ent",Total_Images:"601,061",Total_SKUs:"19,686",Total_Contracted_ARR:"72,000"},
+    {enterprise_id:"QJC7Y1H68",Enterprise_Name:"Bergstrom Automotive",Customer_Segment:"Ent",Total_Images:"450,575",Total_SKUs:"17,989",Total_Contracted_ARR:"76,000"},
+    {enterprise_id:"b733cdf5d",Enterprise_Name:"Jenkins Auto Group",Customer_Segment:"Ent",Total_Images:"436,780",Total_SKUs:"14,331",Total_Contracted_ARR:"105,600"},
+    {enterprise_id:"94eeb2e7a",Enterprise_Name:"Flexicar",Customer_Segment:"Ent",Total_Images:"430,242",Total_SKUs:"16,800",Total_Contracted_ARR:"102,677.22"},
+    {enterprise_id:"0933d658a",Enterprise_Name:"Greenway Automotive Group",Customer_Segment:"Ent",Total_Images:"351,131",Total_SKUs:"10,148",Total_Contracted_ARR:"108,921.5"},
+    {enterprise_id:"c6deac4d7",Enterprise_Name:"MAG Rotherham Ltd.",Customer_Segment:"SMB",Total_Images:"305,981",Total_SKUs:"20,924",Total_Contracted_ARR:"46,555"}
   ],
   rooftops: [
     {team_id:"711ad40c47",Team_Name:"Instamotion",Enterprise_Name:"IM Marketplace GmBH",Customer_Segment:"SMB",Total_SKUs:"959,357",Total_Contracted_ARR:"166,500"},
@@ -209,9 +211,25 @@ const FALLBACK = {
   ]
 };
 
-let allData={main:[],enterprises:[],rooftops:[],newdata:[]};
+let allData={main:[],enterprises:[],rooftops:[],newdata:[],entByARR:[],roofByARR:[]};
 let activeSeg='All', activeMonth=null;
 let charts={};
+let sortState={key:null,dir:1}; // dir: 1=asc, -1=desc
+
+function sortTable(data, key){
+  if(sortState.key===key) sortState.dir*=-1;
+  else { sortState.key=key; sortState.dir=1; }
+  return [...data].sort((a,b)=>{
+    const av=clean(a[key]||0), bv=clean(b[key]||0);
+    if(av===bv) return 0;
+    return av>bv ? sortState.dir : -sortState.dir;
+  });
+}
+
+function thSort(label, key, data, renderFn){
+  const arrow = sortState.key===key ? (sortState.dir===1?'↑':'↓') : '↕';
+  return `<th style="cursor:pointer;user-select:none;" onclick="${renderFn}('${key}')">${label} <span style="color:var(--purple);font-size:10px;">${arrow}</span></th>`;
+}
 
 const clean=v=>parseFloat(String(v||0).replace(/,/g,'').replace(/%/g,'').trim())||0;
 const fmt=v=>{const n=clean(v);if(!n&&!v)return'—';return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'K':String(n);};
@@ -236,11 +254,13 @@ async function fetchJSON(url){
 async function loadAll(){
   document.getElementById('app').innerHTML=`<div class="loading"><div class="spinner"></div><div class="loading-text">Loading dashboard...</div></div>`;
 
-  const [main,enterprises,rooftops,newdata]=await Promise.all([
+  const [main,enterprises,rooftops,newdata,entByARR,roofByARR]=await Promise.all([
     fetchJSON(URLS.main),
     fetchJSON(URLS.enterprises),
     fetchJSON(URLS.rooftops),
-    fetchJSON(URLS.newdata)
+    fetchJSON(URLS.newdata),
+    fetchJSON(URLS.entByARR),
+    fetchJSON(URLS.roofByARR)
   ]);
 
   // Filter out epoch zero bad data & empty segments
@@ -258,6 +278,8 @@ async function loadAll(){
   });
   allData.enterprises=enterprises||FALLBACK.enterprises;
   allData.rooftops=rooftops||FALLBACK.rooftops;
+  allData.entByARR=entByARR||[];
+  allData.roofByARR=roofByARR||[];
 
   // Get months (unique, ordered)
   const months=[...new Set(allData.main.map(d=>d.Month))];
@@ -303,6 +325,32 @@ function aggregated(rows){
 }
 
 function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={};}
+
+// Per-table sort states
+let mainSort={key:'Month',dir:-1};
+let entLoadSort={key:'Total_Images',dir:-1};
+let roofLoadSort={key:'Total_SKUs',dir:-1};
+let entARRSort={key:'Total_Contracted_ARR',dir:-1};
+let roofARRSort={key:'Total_Contracted_ARR',dir:-1};
+
+function sortData(data, state){
+  return [...data].sort((a,b)=>{
+    const av=clean(a[state.key]||0), bv=clean(b[state.key]||0);
+    if(av===bv){
+      // string fallback
+      const as=String(a[state.key]||''), bs=String(b[state.key]||'');
+      return state.dir*(as>bs?1:-1);
+    }
+    return state.dir*(av>bv?1:-1);
+  });
+}
+function toggleSort(state, key){ if(state.key===key) state.dir*=-1; else{state.key=key;state.dir=-1;} render(); }
+function sortMain(k){toggleSort(mainSort,k);}
+function sortEntLoad(k){toggleSort(entLoadSort,k);}
+function sortRoofLoad(k){toggleSort(roofLoadSort,k);}
+function sortEntARR(k){toggleSort(entARRSort,k);}
+function sortRoofARR(k){toggleSort(roofARRSort,k);}
+function th(label,key,state,fn){ const a=state.key===key?(state.dir===-1?'↓':'↑'):'↕'; return `<th style="cursor:pointer;white-space:nowrap;" onclick="${fn}('${key}')">${label} <span style="color:var(--purple);font-size:9px;">${a}</span></th>`; }
 
 function render(){
   destroyCharts();
@@ -392,13 +440,20 @@ function render(){
     </div>
 
     <!-- TOP 10 TABLES -->
-    <div class="sec-label">Top 10 · Load & ARR</div>
+    <div class="sec-label">Top 10 · By Load</div>
     <div class="tables-2">
       <div class="table-card">
         <div class="table-hd"><span class="table-hd-title">Top 10 Enterprises by Images</span><span class="table-hd-badge">Last 3M</span></div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>#</th><th>Enterprise</th><th>Segment</th><th>Images</th><th>SKUs</th><th>ARR</th></tr></thead>
-          <tbody>${allData.enterprises.map((d,i)=>`<tr>
+          <thead><tr>
+            <th>#</th>
+            <th>Enterprise</th>
+            <th>Segment</th>
+            ${th('Images','Total_Images',entLoadSort,'sortEntLoad')}
+            ${th('SKUs','Total_SKUs',entLoadSort,'sortEntLoad')}
+            ${th('ARR','Total_Contracted_ARR',entLoadSort,'sortEntLoad')}
+          </tr></thead>
+          <tbody>${sortData(allData.enterprises,entLoadSort).map((d,i)=>`<tr>
             <td>${i+1}</td>
             <td>${d.Enterprise_Name}</td>
             <td>${segChip(d.Customer_Segment)}</td>
@@ -411,8 +466,15 @@ function render(){
       <div class="table-card">
         <div class="table-hd"><span class="table-hd-title">Top 10 Rooftops by SKUs</span><span class="table-hd-badge">Last 3M</span></div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>#</th><th>Team</th><th>Enterprise</th><th>Segment</th><th>SKUs</th><th>ARR</th></tr></thead>
-          <tbody>${allData.rooftops.map((d,i)=>`<tr>
+          <thead><tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>Enterprise</th>
+            <th>Segment</th>
+            ${th('SKUs','Total_SKUs',roofLoadSort,'sortRoofLoad')}
+            ${th('ARR','Total_Contracted_ARR',roofLoadSort,'sortRoofLoad')}
+          </tr></thead>
+          <tbody>${sortData(allData.rooftops,roofLoadSort).map((d,i)=>`<tr>
             <td>${i+1}</td>
             <td>${d.Team_Name}</td>
             <td>${d.Enterprise_Name}</td>
@@ -424,18 +486,75 @@ function render(){
       </div>
     </div>
 
+    <!-- TOP 10 BY ARR -->
+    <div class="sec-label">Top 10 · By Contracted ARR</div>
+    <div class="tables-2">
+      <div class="table-card">
+        <div class="table-hd"><span class="table-hd-title">Top 10 Enterprises by ARR</span><span class="table-hd-badge">Automobiles</span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>#</th>
+            <th>Enterprise</th>
+            <th>Segment</th>
+            <th>Plan</th>
+            ${th('ARR','Total_Contracted_ARR',entARRSort,'sortEntARR')}
+          </tr></thead>
+          <tbody>${sortData(allData.entByARR,entARRSort).map((d,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${d.Enterprise_Name||d.enterprise_name||'—'}</td>
+            <td>${segChip(d.Customer_Segment||d.customer_segment||'')}</td>
+            <td>${d.Plan_Name||d.plan_name||'—'}</td>
+            <td>${fmtARR(d.Total_Contracted_ARR||d.total_contracted_arr||0)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+      <div class="table-card">
+        <div class="table-hd"><span class="table-hd-title">Top 10 Rooftops by ARR</span><span class="table-hd-badge">Automobiles</span></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>Enterprise</th>
+            <th>Segment</th>
+            ${th('ARR','Total_Contracted_ARR',roofARRSort,'sortRoofARR')}
+          </tr></thead>
+          <tbody>${sortData(allData.roofByARR,roofARRSort).map((d,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${d.Team_Name||d.team_name||'—'}</td>
+            <td>${d.Enterprise_Name||d.enterprise_name||'—'}</td>
+            <td>${segChip(d.Customer_Segment||d.customer_segment||'')}</td>
+            <td>${fmtARR(d.Total_Contracted_ARR||d.total_contracted_arr||0)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- FULL DATA TABLE -->
     <div class="sec-label">Full Monthly Data</div>
     <div class="table-card" style="margin-bottom:40px;">
       <div class="table-hd"><span class="table-hd-title">Monthly Summary by Segment</span><span class="table-hd-badge">${allData.main.filter(d=>!String(d.Month).includes('1970')).length} rows</span></div>
       <div class="tbl-wrap"><table>
         <thead><tr>
-          <th>Month</th><th>Segment</th><th>Type</th><th>Images</th><th>SKUs</th>
-          <th>Enterprises</th><th>Rooftops</th><th>Img TAT</th><th>SKU TAT</th>
-          <th>True Acc</th><th>Post QC Acc</th><th>QC Fix</th><th>QC Fix %</th>
-          <th>Manual Fix</th><th>Manual Fix %</th><th>New Ent</th><th>New Roof</th><th>ARR</th>
+          ${th('Month','Month',mainSort,'sortMain')}
+          ${th('Segment','customer_segment',mainSort,'sortMain')}
+          <th>Type</th>
+          ${th('Images','Total_Images',mainSort,'sortMain')}
+          ${th('SKUs','Total_SKUs',mainSort,'sortMain')}
+          ${th('Enterprises','Total Active Enterprises',mainSort,'sortMain')}
+          ${th('Rooftops','Total Active Rooftops',mainSort,'sortMain')}
+          ${th('Img TAT','Avg_Image_TAT_Hours',mainSort,'sortMain')}
+          ${th('SKU TAT','Avg_SKU_TAT_Hours',mainSort,'sortMain')}
+          ${th('True Acc','true_accuracy',mainSort,'sortMain')}
+          ${th('Post QC Acc','post_qc_tool_accuracy',mainSort,'sortMain')}
+          ${th('QC Fix','QC Fix Images',mainSort,'sortMain')}
+          ${th('QC Fix %','QC Fix %',mainSort,'sortMain')}
+          ${th('Manual Fix','Manual Fix',mainSort,'sortMain')}
+          ${th('Manual Fix %','Manual Fix %',mainSort,'sortMain')}
+          ${th('New Ent','New_Enterprises_Added',mainSort,'sortMain')}
+          ${th('New Roof','New_Rooftops_Added',mainSort,'sortMain')}
+          ${th('ARR','Total_Contracted_ARR',mainSort,'sortMain')}
         </tr></thead>
-        <tbody>${allData.main.filter(d=>!String(d.Month).includes('1970')).map(d=>`<tr>
+        <tbody>${sortData(allData.main.filter(d=>!String(d.Month).includes('1970')),mainSort).map(d=>`<tr>
           <td>${d.Month}</td>
           <td>${segChip(d.customer_segment||'—')}</td>
           <td><span class="badge ${d.Month_Type==='MTD'?'bg-a':'bg-p'}">${d.Month_Type}</span></td>
