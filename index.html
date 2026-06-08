@@ -148,7 +148,8 @@ const URLS = {
   rooftops: 'https://metabase.spyne.ai/public/question/38df9aa6-35be-4a30-bf11-09b4a262b008.json',
   newdata: 'https://metabase.spyne.ai/public/question/6b05b3d8-fc78-4e70-bcae-c7ffdab31fc7.json',
   entByARR: 'https://metabase.spyne.ai/public/question/99658eb5-f9c6-4e0a-be12-1d38bc593b4e.json',
-  roofByARR: 'https://metabase.spyne.ai/public/question/4d62650a-a385-4d2a-afe5-2fdcd102938f.json'
+  roofByARR: 'https://metabase.spyne.ai/public/question/4d62650a-a385-4d2a-afe5-2fdcd102938f.json',
+  csmOB: 'https://metabase.spyne.ai/public/question/6fc6429b-1268-4ee7-b1b0-7f7ecfeac272.json'
 };
 
 // Embedded fallback data
@@ -208,10 +209,45 @@ const FALLBACK = {
     {Month:"1 Mar, 2026",customer_segment:"Mid",New_Enterprises_Added:"34",New_Rooftops_Added:"40"},
     {Month:"1 Mar, 2026",customer_segment:"Resellers",New_Enterprises_Added:"21",New_Rooftops_Added:"71"},
     {Month:"1 Mar, 2026",customer_segment:"SMB",New_Enterprises_Added:"273",New_Rooftops_Added:"288"}
+  ],
+  entByARR: [
+    {enterprise_id:"7d06f7427",Enterprise_Name:"Brandon Steven Motors",Customer_Segment:"Ent",Total_Contracted_ARR:438600,Plan_Name:"Comprehensive"},
+    {enterprise_id:"2f72baaf1",Enterprise_Name:"Via Porto",Customer_Segment:"Ent",Total_Contracted_ARR:373932,Plan_Name:""},
+    {enterprise_id:"d38f1a0ca",Enterprise_Name:"Bob King Mazda",Customer_Segment:"Ent",Total_Contracted_ARR:301946,Plan_Name:""},
+    {enterprise_id:"18d200080",Enterprise_Name:"Foto-Ops",Customer_Segment:"Resellers",Total_Contracted_ARR:222000,Plan_Name:"Essential"},
+    {enterprise_id:"f07925222",Enterprise_Name:"Principle Automotive",Customer_Segment:"Ent",Total_Contracted_ARR:201600,Plan_Name:""},
+    {enterprise_id:"3e0ce2e3c",Enterprise_Name:"SVG Auto Group",Customer_Segment:"Ent",Total_Contracted_ARR:185904,Plan_Name:"Comprehensive"},
+    {enterprise_id:"46cf87af0",Enterprise_Name:"Jones Chrysler Dodge Jeep Ram",Customer_Segment:"Ent",Total_Contracted_ARR:179820,Plan_Name:""},
+    {enterprise_id:"1291a4fc6",Enterprise_Name:"Dorsett Automotive",Customer_Segment:"Ent",Total_Contracted_ARR:172800,Plan_Name:"Pro"},
+    {enterprise_id:"6454b95ba",Enterprise_Name:"Asbury Automotive Management L.L.C",Customer_Segment:"Ent",Total_Contracted_ARR:168396,Plan_Name:"Lite"},
+    {enterprise_id:"00d2aafe9",Enterprise_Name:"IM Marketplace GmBH",Customer_Segment:"SMB",Total_Contracted_ARR:166500,Plan_Name:"Comprehensive"}
+  ],
+  roofByARR: [
+    {team_id:"c580b10da1",Team_Name:"Team 1",Enterprise_Name:"Foto-Ops",Customer_Segment:"Resellers",Total_Contracted_ARR:222000,Plan_Name:"Essential"},
+    {team_id:"711ad40c47",Team_Name:"Instamotion",Enterprise_Name:"IM Marketplace GmBH",Customer_Segment:"SMB",Total_Contracted_ARR:166500,Plan_Name:"Comprehensive"},
+    {team_id:"11ce57543b",Team_Name:"SANGLI WHEELS",Enterprise_Name:"SANGLI WHEELS",Customer_Segment:"SMB",Total_Contracted_ARR:159996,Plan_Name:"Essential"},
+    {team_id:"741f4e6c76",Team_Name:"Dealer VisionTeam-A",Enterprise_Name:"DealerVision.com",Customer_Segment:"Resellers",Total_Contracted_ARR:145000,Plan_Name:"Growth"},
+    {team_id:"008dcfccd5",Team_Name:"Metadome.ai",Enterprise_Name:"Metadome",Customer_Segment:"Mid",Total_Contracted_ARR:140800,Plan_Name:"Lite"},
+    {team_id:"7a3504ea40",Team_Name:"CarFocus",Enterprise_Name:"360 Cars Chile SpA",Customer_Segment:"Resellers",Total_Contracted_ARR:137880,Plan_Name:"Comprehensive"},
+    {team_id:"efadc1d4d8",Team_Name:"Nic Carr",Enterprise_Name:"Nic Carr",Customer_Segment:"Resellers",Total_Contracted_ARR:135000,Plan_Name:"Essential"},
+    {team_id:"25c85bf3da",Team_Name:"Dealer Specialties",Enterprise_Name:"Dealer Specialties, LLC",Customer_Segment:"Resellers",Total_Contracted_ARR:126000,Plan_Name:"Essential"},
+    {team_id:"656a65ee6f",Team_Name:"Team 1",Enterprise_Name:"car pics",Customer_Segment:"Resellers",Total_Contracted_ARR:117000,Plan_Name:"Essential"}
+  ],
+  csmOB: [
+    {Owner:"ankur.batra@spyne.ai",Owner_Type:"CSM",Total_Enterprises:35,Total_Contracted_ARR:1613740.92,Customer_Segment:"Ent"},
+    {Owner:"abhijeet.mitra@spyne.ai",Owner_Type:"CSM",Total_Enterprises:54,Total_Contracted_ARR:1344931.21,Customer_Segment:"Ent"},
+    {Owner:"prabha.kumari@spyne.ai",Owner_Type:"CSM",Total_Enterprises:34,Total_Contracted_ARR:1033214.52,Customer_Segment:"SMB"},
+    {Owner:"prakash.kumar@spyne.ai",Owner_Type:"OB",Total_Enterprises:77,Total_Contracted_ARR:993159.74,Customer_Segment:"SMB"},
+    {Owner:"vedant.choudhary@spyne.ai",Owner_Type:"CSM",Total_Enterprises:41,Total_Contracted_ARR:911496.93,Customer_Segment:"SMB"},
+    {Owner:"jaspreet.kaur@spyne.ai",Owner_Type:"CSM",Total_Enterprises:51,Total_Contracted_ARR:875445.80,Customer_Segment:"Ent"},
+    {Owner:"zeeshana.aijaz@spyne.ai",Owner_Type:"CSM",Total_Enterprises:65,Total_Contracted_ARR:833551.12,Customer_Segment:"Ent"},
+    {Owner:"anuj.tewatia@spyne.ai",Owner_Type:"CSM",Total_Enterprises:138,Total_Contracted_ARR:665578.56,Customer_Segment:"SMB"},
+    {Owner:"aman.seth@spyne.ai",Owner_Type:"CSM",Total_Enterprises:20,Total_Contracted_ARR:621334.76,Customer_Segment:"SMB"},
+    {Owner:"manpreet.kaur@spyne.ai",Owner_Type:"CSM",Total_Enterprises:174,Total_Contracted_ARR:621301.89,Customer_Segment:"SMB"}
   ]
 };
 
-let allData={main:[],enterprises:[],rooftops:[],newdata:[],entByARR:[],roofByARR:[]};
+let allData={main:[],enterprises:[],rooftops:[],newdata:[],entByARR:[],roofByARR:[],csmOB:[]};
 let activeSeg='All', activeMonth=null;
 let charts={};
 let sortState={key:null,dir:1}; // dir: 1=asc, -1=desc
@@ -254,13 +290,14 @@ async function fetchJSON(url){
 async function loadAll(){
   document.getElementById('app').innerHTML=`<div class="loading"><div class="spinner"></div><div class="loading-text">Loading dashboard...</div></div>`;
 
-  const [main,enterprises,rooftops,newdata,entByARR,roofByARR]=await Promise.all([
+  const [main,enterprises,rooftops,newdata,entByARR,roofByARR,csmOB]=await Promise.all([
     fetchJSON(URLS.main),
     fetchJSON(URLS.enterprises),
     fetchJSON(URLS.rooftops),
     fetchJSON(URLS.newdata),
     fetchJSON(URLS.entByARR),
-    fetchJSON(URLS.roofByARR)
+    fetchJSON(URLS.roofByARR),
+    fetchJSON(URLS.csmOB)
   ]);
 
   // Filter out epoch zero bad data & empty segments
@@ -278,8 +315,30 @@ async function loadAll(){
   });
   allData.enterprises=enterprises||FALLBACK.enterprises;
   allData.rooftops=rooftops||FALLBACK.rooftops;
-  allData.entByARR=entByARR||[];
-  allData.roofByARR=roofByARR||[];
+  // Normalize entByARR - fix 'apld.enterprise_id' column name issue
+  allData.entByARR=(entByARR||[]).map(d=>({
+    enterprise_id: d['apld.enterprise_id']||d.enterprise_id||'',
+    Enterprise_Name: d.Enterprise_Name||d.enterprise_name||'—',
+    Customer_Segment: d.Customer_Segment||d.customer_segment||'',
+    Total_Contracted_ARR: d.Total_Contracted_ARR||d.total_contracted_arr||0,
+    Plan_Name: d.Plan_Name||d.plan_name||'—'
+  }));
+  // Normalize roofByARR
+  allData.roofByARR=(roofByARR||[]).map(d=>({
+    team_id: d.team_id||'',
+    Team_Name: d.Team_Name||d.team_name||'—',
+    Enterprise_Name: d.Enterprise_Name||d.enterprise_name||'—',
+    Customer_Segment: d.Customer_Segment||d.customer_segment||'',
+    Total_Contracted_ARR: d.Total_Contracted_ARR||d.total_contracted_arr||0,
+    Plan_Name: d.Plan_Name||d.plan_name||'—'
+  }));
+  allData.csmOB=(csmOB||[]).map(d=>({
+    Owner: d.Owner||d.owner||'—',
+    Owner_Type: d.Owner_Type||d.owner_type||'—',
+    Total_Enterprises: d.Total_Enterprises||d.total_enterprises||0,
+    Total_Contracted_ARR: d.Total_Contracted_ARR||d.total_contracted_arr||0,
+    Customer_Segment: d.Customer_Segment||d.customer_segment||''
+  }));
 
   // Get months (unique, ordered)
   const months=[...new Set(allData.main.map(d=>d.Month))];
@@ -332,6 +391,7 @@ let entLoadSort={key:'Total_Images',dir:-1};
 let roofLoadSort={key:'Total_SKUs',dir:-1};
 let entARRSort={key:'Total_Contracted_ARR',dir:-1};
 let roofARRSort={key:'Total_Contracted_ARR',dir:-1};
+let csmOBSort={key:'Total_Contracted_ARR',dir:-1};
 
 function sortData(data, state){
   return [...data].sort((a,b)=>{
@@ -350,6 +410,7 @@ function sortEntLoad(k){toggleSort(entLoadSort,k);}
 function sortRoofLoad(k){toggleSort(roofLoadSort,k);}
 function sortEntARR(k){toggleSort(entARRSort,k);}
 function sortRoofARR(k){toggleSort(roofARRSort,k);}
+function sortCsmOB(k){toggleSort(csmOBSort,k);}
 function th(label,key,state,fn){ const a=state.key===key?(state.dir===-1?'↓':'↑'):'↕'; return `<th style="cursor:pointer;white-space:nowrap;" onclick="${fn}('${key}')">${label} <span style="color:var(--purple);font-size:9px;">${a}</span></th>`; }
 
 function render(){
@@ -527,6 +588,39 @@ function render(){
           </tr>`).join('')}</tbody>
         </table></div>
       </div>
+    </div>
+
+    <!-- CSM / OB TABLE -->
+    <div class="sec-label">Top 10 · By CSM / OB Owner</div>
+    <div class="table-card" style="margin-bottom:20px;">
+      <div class="table-hd">
+        <span class="table-hd-title">Owner Performance (CSM → OB fallback)</span>
+        <span class="table-hd-badge">Automobiles</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>#</th>
+          ${th('Owner','Owner',csmOBSort,'sortCsmOB')}
+          <th>Type</th>
+          <th>Dominant Segment</th>
+          ${th('Enterprises','Total_Enterprises',csmOBSort,'sortCsmOB')}
+          ${th('Contracted ARR','Total_Contracted_ARR',csmOBSort,'sortCsmOB')}
+          <th>Avg ARR/Enterprise</th>
+        </tr></thead>
+        <tbody>${allData.csmOB.length ? sortData(allData.csmOB,csmOBSort).map((d,i)=>{
+          const avgARR = d.Total_Enterprises>0 ? d.Total_Contracted_ARR/d.Total_Enterprises : 0;
+          return `<tr>
+            <td>${i+1}</td>
+            <td style="font-weight:600;color:var(--text);">${d.Owner.split('@')[0]}<br><span style="font-size:10px;color:var(--muted);font-weight:400;">@${d.Owner.split('@')[1]||''}</span></td>
+            <td><span class="badge ${d.Owner_Type==='CSM'?'bg-g':'bg-p'}">${d.Owner_Type}</span></td>
+            <td>${segChip(d.Customer_Segment||'')}</td>
+            <td>${fmt(d.Total_Enterprises)}</td>
+            <td>${fmtARR(d.Total_Contracted_ARR)}</td>
+            <td>${fmtARR(avgARR)}</td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No data available</td></tr>`}
+        </tbody>
+      </table></div>
     </div>
 
     <!-- FULL DATA TABLE -->
