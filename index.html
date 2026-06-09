@@ -142,14 +142,17 @@ tbody td:first-child{font-weight:700;color:var(--purple);}
 </div>
 
 <script>
+const GAS =
+'https://script.google.com/macros/s/AKfycbx8J-COayJdrTlpYbccgijYZFfPRKIW1pcmHrYCd8A7sxNYIvlF1LT9AT66ho8QRftO3g/exec';
+
 const URLS = {
-  main: '/api/main',
-  enterprises: '/api/enterprises',
-  rooftops: '/api/rooftops',
-  newdata: '/api/newdata',
-  entByARR: '/api/entByARR',
-  roofByARR: '/api/roofByARR',
-  csmOB: '/api/csmOB'
+  main: `${GAS}?report=main`,
+  enterprises: `${GAS}?report=enterprises`,
+  rooftops: `${GAS}?report=rooftops`,
+  newdata: `${GAS}?report=newdata`,
+  entByARR: `${GAS}?report=entbyarr`,
+  roofByARR: `${GAS}?report=roofbyarr`,
+  csmOB: `${GAS}?report=csmob`
 };
 
 // Embedded fallback data
