@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/api/main", "destination": "/api/main.js" },
+    { "source": "/api/enterprises", "destination": "/api/enterprises.js" },
+    { "source": "/api/rooftops", "destination": "/api/rooftops.js" },
+    { "source": "/api/newdata", "destination": "/api/newdata.js" },
+    { "source": "/api/entByARR", "destination": "/api/entByARR.js" },
+    { "source": "/api/roofByARR", "destination": "/api/roofByARR.js" },
+    { "source": "/api/csmOB", "destination": "/api/csmOB.js" }
+  ]
+}
