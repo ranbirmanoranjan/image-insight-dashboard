@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/query", "destination": "/api/query.js" }
-  ]
-}
