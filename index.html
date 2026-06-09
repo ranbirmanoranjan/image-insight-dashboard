@@ -616,10 +616,8 @@ function render(){
           ${th('Enterprises','Total_Enterprises',csmOBSort,'sortCsmOB')}
           ${th('Teams','Total_Teams',csmOBSort,'sortCsmOB')}
           ${th('Contracted ARR','Total_Contracted_ARR',csmOBSort,'sortCsmOB')}
-          <th>Avg ARR / Ent</th>
         </tr></thead>
         <tbody>${allData.csmOB.length ? sortData(allData.csmOB,csmOBSort).map((d,i)=>{
-          const avgARR = d.Total_Enterprises>0 ? d.Total_Contracted_ARR/d.Total_Enterprises : 0;
           return `<tr>
             <td>${i+1}</td>
             <td>${d.Owner.split('@')[0]}</td>
@@ -627,7 +625,6 @@ function render(){
             <td>${segChip(d.Customer_Segment||'')}</td>
             <td>${fmt(d.Total_Enterprises)}</td>
             <td>${fmtARR(d.Total_Contracted_ARR)}</td>
-            <td>${fmtARR(avgARR)}</td>
           </tr>`;
         }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No data available</td></tr>`}
         </tbody>
