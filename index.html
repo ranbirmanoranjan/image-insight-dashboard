@@ -143,7 +143,7 @@ tbody td:first-child{font-weight:700;color:var(--purple);}
 
 <script>
 const GAS =
-'https://script.google.com/macros/s/AKfycbyq-53qyz-Q1sKRCHr-KrABYrRf0ltKkPAtzgfDshEex_vRPgLLgOS37CTvRL5WlZD1SA/exec';
+'https://script.google.com/macros/s/AKfycbx8J-COayJdrTlpYbccgijYZFfPRKIW1pcmHrYCd8A7sxNYIvlF1LT9AT66ho8QRftO3g/exec';
 
 const URLS = {
   main: `${GAS}?report=main`,
@@ -604,7 +604,7 @@ function render(){
     <div class="sec-label">Top 10 · By CSM / OB Owner</div>
     <div class="table-card" style="margin-bottom:20px;">
       <div class="table-hd">
-        <span class="table-hd-title">Top 10 Enterprises by Account Owner</span>
+        <span class="table-hd-title">CSM wise Enterprises</span>
         <span class="table-hd-badge">CSM / OB</span>
       </div>
       <div class="tbl-wrap"><table>
@@ -614,6 +614,7 @@ function render(){
           <th>Role</th>
           <th>Segment</th>
           ${th('Enterprises','Total_Enterprises',csmOBSort,'sortCsmOB')}
+          ${th('Teams','Total_Teams',csmOBSort,'sortCsmOB')}
           ${th('Contracted ARR','Total_Contracted_ARR',csmOBSort,'sortCsmOB')}
           <th>Avg ARR / Ent</th>
         </tr></thead>
