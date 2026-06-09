@@ -279,14 +279,20 @@ const segChip=s=>`<span class="seg-chip seg-${s}">${s}</span>`;
 
 async function fetchJSON(url){
   try{
-    const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(url);
     const j=await r.json();
+
     if(Array.isArray(j)&&j.length) return j;
+
     if(j?.data?.rows){
       const cols=j.data.cols.map(c=>c.name);
-      return j.data.rows.map(row=>Object.fromEntries(cols.map((c,i)=>[c,row[i]])));
+      return j.data.rows.map(row=>
+        Object.fromEntries(cols.map((c,i)=>[c,row[i]]))
+      );
     }
-  }catch(e){console.warn('Fetch failed:',e);}
+  }catch(e){
+    console.warn('Fetch failed:',e);
+  }
   return null;
 }
 
