@@ -143,7 +143,7 @@ tbody td:first-child{font-weight:700;color:var(--purple);}
 
 <script>
 const GAS =
-'https://script.google.com/macros/s/AKfycbx8J-COayJdrTlpYbccgijYZFfPRKIW1pcmHrYCd8A7sxNYIvlF1LT9AT66ho8QRftO3g/exec';
+'https://script.google.com/macros/s/AKfycbyq-53qyz-Q1sKRCHr-KrABYrRf0ltKkPAtzgfDshEex_vRPgLLgOS37CTvRL5WlZD1SA/exec';
 
 const URLS = {
   main: `${GAS}?report=main`,
@@ -346,6 +346,7 @@ async function loadAll(){
     Owner: d.Owner||d.owner||'—',
     Owner_Type: d.Owner_Type||d.owner_type||'—',
     Total_Enterprises: d.Total_Enterprises||d.total_enterprises||0,
+    Total_Teams: d.Total_Teams||d.total_teams||0,
     Total_Contracted_ARR: d.Total_Contracted_ARR||d.total_contracted_arr||0,
     Customer_Segment: d.Customer_Segment||d.customer_segment||''
   }));
@@ -624,6 +625,7 @@ function render(){
             <td><span class="badge ${d.Owner_Type==='CSM'?'bg-g':'bg-p'}">${d.Owner_Type}</span></td>
             <td>${segChip(d.Customer_Segment||'')}</td>
             <td>${fmt(d.Total_Enterprises)}</td>
+            <td>${fmt(d.Total_Teams||0)}</td>
             <td>${fmtARR(d.Total_Contracted_ARR)}</td>
           </tr>`;
         }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No data available</td></tr>`}
