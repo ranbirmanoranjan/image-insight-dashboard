@@ -154,6 +154,7 @@ const URLS = {
   roofByARR: `${GAS}?report=roofbyarr`,
   csmOB: `${GAS}?report=csmob`
 };
+function inflowURL(days){ return `${GAS}?report=inflow&days=${days}`; }
 
 // Embedded fallback data
 const FALLBACK = {
@@ -357,6 +358,7 @@ async function loadAll(){
 
   document.getElementById('lastUpd').textContent='Updated '+new Date().toLocaleTimeString();
   render();
+  loadInflow(0); // load today's inflow by default
 }
 
 function getMonths(){return[...new Set(allData.main.map(d=>d.Month))];}
@@ -395,6 +397,150 @@ function aggregated(rows){
 }
 
 function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={};}
+
+// Inflow chart state
+let inflowPeriod = 0; // 0=today
+let inflowData = [];
+let inflowChart = null;
+
+async function loadInflow(days){
+  inflowPeriod = days;
+  // highlight active button
+  document.querySelectorAll('.inflow-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.days) === days);
+  });
+  try {
+    const data = await fetchJSON(inflowURL(days));
+    if(data && data.length) inflowData = data;
+  } catch(e) { console.warn('Inflow fetch failed', e); }
+  buildInflowChart();
+}
+
+function buildInflowChart(){
+  if(inflowChart) inflowChart.destroy();
+  const canvas = document.getElementById('cInflow');
+  if(!canvas) return;
+
+  const today = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}).replace(/ /g,', ');
+  const yesterday = new Date(Date.now()-86400000).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}).replace(/ /g,', ');
+
+  let filtered = inflowData;
+
+  // For today (days=0) filter to today's date only
+  if(inflowPeriod === 0){
+    const todayIST = new Date().toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'});
+    filtered = inflowData.filter(d => {
+      const dDate = new Date(d.date_ist).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'});
+      return dDate === todayIST;
+    });
+  }
+  // For yesterday (days=1) filter to yesterday's date only
+  else if(inflowPeriod === 1){
+    const ystIST = new Date(Date.now()-86400000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'});
+    filtered = inflowData.filter(d => {
+      const dDate = new Date(d.date_ist).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'});
+      return dDate === ystIST;
+    });
+  }
+  // For ranges: average by hour across all dates
+  else {
+    const hourMap = {};
+    const hourCount = {};
+    filtered.forEach(d => {
+      const h = d.hour_ist;
+      if(!hourMap[h]){ hourMap[h]={received:0,qc_done:0}; hourCount[h]=0; }
+      hourMap[h].received += clean(d.received);
+      hourMap[h].qc_done += clean(d.qc_done);
+      hourCount[h]++;
+    });
+    filtered = Array.from({length:24},(_,h)=>({
+      hour_ist: h,
+      received: hourMap[h] ? Math.round(hourMap[h].received/hourCount[h]) : 0,
+      qc_done: hourMap[h] ? Math.round(hourMap[h].qc_done/hourCount[h]) : 0
+    }));
+  }
+
+  // Build hour 0-23 arrays
+  const hourMap2 = {};
+  filtered.forEach(d => { hourMap2[d.hour_ist] = d; });
+  const labels = Array.from({length:24},(_,h)=>h.toString().padStart(2,'0')+':00');
+  const received = Array.from({length:24},(_,h)=> clean(hourMap2[h]?.received||0));
+  const qcDone   = Array.from({length:24},(_,h)=> clean(hourMap2[h]?.qc_done||0));
+
+  // Calculate cumulative pendency
+  let pendency = [], running = 0;
+  for(let h=0;h<24;h++){
+    running += received[h] - qcDone[h];
+    pendency.push(running);
+  }
+
+  const totalReceived = received.reduce((a,b)=>a+b,0);
+  const totalQCDone   = qcDone.reduce((a,b)=>a+b,0);
+  const peakPendency  = Math.max(...pendency);
+  const endPendency   = pendency[23];
+
+  // Update footer
+  const footer = document.getElementById('inflowFooter');
+  if(footer) footer.innerHTML = `
+    <span style="color:var(--blue)">● Received: <b>${fmt(totalReceived)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--green)">● QC Done: <b>${fmt(totalQCDone)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--red)">● Pendency: peak <b>${fmt(peakPendency)}</b> · end <b>${fmt(endPendency)}</b></span>
+  `;
+
+  inflowChart = new Chart(canvas, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line', label: 'Received',
+          data: received,
+          borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.08)',
+          tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#2563EB',
+          datalabels: {
+            display: true, anchor:'end', align:'top',
+            color:'#2563EB', font:{size:9,weight:'700'},
+            formatter: v => v>0?fmt(v):''
+          }
+        },
+        {
+          type: 'line', label: 'QC Done',
+          data: qcDone,
+          borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.08)',
+          tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: '#059669',
+          datalabels: {
+            display: true, anchor:'end', align:'top',
+            color:'#059669', font:{size:9,weight:'700'},
+            formatter: v => v>0?fmt(v):''
+          }
+        },
+        {
+          type: 'line', label: 'Pendency',
+          data: pendency,
+          borderColor: '#DC2626', backgroundColor: 'transparent',
+          borderDash: [6,3], tension: 0.4, fill: false,
+          pointRadius: 3, pointBackgroundColor: '#DC2626',
+          datalabels: {
+            display: true, anchor:'end', align:'top',
+            color:'#DC2626', font:{size:9,weight:'700'},
+            formatter: v => v>0?fmt(v):''
+          }
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { labels:{ color:'#7B7A9A', font:{family:'Plus Jakarta Sans',size:11}, boxWidth:12, padding:14 }},
+        datalabels: { display: true }
+      },
+      scales: {
+        x: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'} },
+        y: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'} }
+      }
+    }
+  });
+}
 
 // Per-table sort states
 let mainSort={key:'Month',dir:-1};
@@ -488,11 +634,25 @@ function render(){
       <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
     </div>
 
-    <!-- KPI ROW 3 -->
-    <div class="sec-label">Fix Analysis</div>
-    <div class="kpi-grid">
-      <div class="kpi-card kr"><div class="kpi-icon">🔧</div><div class="kpi-label">QC Fix Images</div><div class="kpi-val dark">${fmt(agg['QC Fix Images'])}</div><div class="kpi-sub">${clean(agg['QC Fix %']).toFixed(2)}% of total</div></div>
-      <div class="kpi-card kr"><div class="kpi-icon">✏️</div><div class="kpi-label">Manual Fix</div><div class="kpi-val dark">${fmt(agg['Manual Fix'])}</div><div class="kpi-sub">${clean(agg['Manual Fix %']).toFixed(2)}% of total</div></div>
+    <!-- INFLOW CHART IN PLACE OF FIX ANALYSIS -->
+    <div class="sec-label">Hourly Throughput · QC Inflow vs Outflow</div>
+    <div class="chart-card" style="margin-bottom:4px;">
+      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="chart-title">Hourly Throughput</div>
+          <div class="chart-sub">Received · QC Done · Pendency = fresh + prior hour leftover</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="inflow-btn active chip" data-days="0" onclick="loadInflow(0)">Today</button>
+          <button class="inflow-btn chip" data-days="1" onclick="loadInflow(1)">Yesterday</button>
+          <button class="inflow-btn chip" data-days="7" onclick="loadInflow(7)">Last 7 Days</button>
+          <button class="inflow-btn chip" data-days="15" onclick="loadInflow(15)">Last 15 Days</button>
+          <button class="inflow-btn chip" data-days="30" onclick="loadInflow(30)">Last 30 Days</button>
+          <button class="inflow-btn chip" data-days="45" onclick="loadInflow(45)">Last 45 Days</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:280px;margin-top:16px;"><canvas id="cInflow"></canvas></div>
+      <div id="inflowFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
     </div>
 
     <!-- CHARTS: SEGMENT TRENDS -->
