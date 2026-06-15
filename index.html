@@ -155,6 +155,8 @@ const URLS = {
   csmOB: `${GAS}?report=csmob`
 };
 function inflowURL(days){ return `${GAS}?report=inflow&days=${days}`; }
+function inflowTodayURL(){ return `${GAS}?report=inflow_today`; }
+function inflowDailyURL(days){ return `${GAS}?report=inflow_daily&days=${days}`; }
 
 // Embedded fallback data
 const FALLBACK = {
@@ -358,7 +360,8 @@ async function loadAll(){
 
   document.getElementById('lastUpd').textContent='Updated '+new Date().toLocaleTimeString();
   render();
-  loadInflow(0); // load today's inflow by default
+  setTimeout(()=>loadInflow(0), 100); // load today's inflow after render completes
+  setTimeout(()=>loadTrend(0), 200);  // load today's inflow trend
 }
 
 function getMonths(){return[...new Set(allData.main.map(d=>d.Month))];}
@@ -398,6 +401,94 @@ function aggregated(rows){
 
 function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={};}
 
+// Inflow trend chart state
+let trendPeriod = 0;
+let trendData = [];
+let trendChart = null;
+
+async function loadTrend(days){
+  trendPeriod = days;
+  document.querySelectorAll('.trend-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.days) === days);
+  });
+  try {
+    let data;
+    if(days === 0){
+      data = await fetchJSON(inflowTodayURL());
+    } else {
+      data = await fetchJSON(inflowDailyURL(days));
+    }
+    if(data && data.length) trendData = data;
+  } catch(e){ console.warn('Trend fetch failed', e); }
+  buildTrendChart();
+}
+
+function buildTrendChart(){
+  if(trendChart){ try{trendChart.destroy();}catch(e){} trendChart=null; }
+  const canvas = document.getElementById('cTrend');
+  if(!canvas || !trendData.length) return;
+
+  let labels, values;
+
+  if(trendPeriod === 0){
+    // Today - hourly x-axis 0-23
+    const hourMap = {};
+    trendData.forEach(d => { hourMap[d.hour_ist] = clean(d.inflow); });
+    labels = Array.from({length:24},(_,h) => h.toString().padStart(2,'0')+':00');
+    values = Array.from({length:24},(_,h) => hourMap[h]||0);
+  } else {
+    // Daily x-axis
+    labels = trendData.map(d => d.date_ist);
+    values = trendData.map(d => clean(d.inflow));
+  }
+
+  const total = values.reduce((a,b)=>a+b,0);
+  const peak = Math.max(...values);
+  const avg = Math.round(total/values.filter(v=>v>0).length)||0;
+
+  const footer = document.getElementById('trendFooter');
+  if(footer) footer.innerHTML = `
+    <span style="color:var(--purple)">● Total Inflow: <b>${fmt(total)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--amber)">● Peak: <b>${fmt(peak)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--muted)">● Avg: <b>${fmt(avg)}</b></span>
+  `;
+
+  trendChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Inflow',
+        data: values,
+        borderColor: '#6B2FD9',
+        backgroundColor: 'rgba(107,47,217,0.08)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: '#6B2FD9',
+        datalabels: {
+          display: true,
+          anchor: 'end', align: 'top',
+          color: '#6B2FD9',
+          font: {size:9, weight:'700'},
+          formatter: v => v>0 ? fmt(v) : ''
+        }
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: true }
+      },
+      scales: {
+        x: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'} },
+        y: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'}, beginAtZero:true }
+      }
+    }
+  });
+}
+
 // Inflow chart state
 let inflowPeriod = 0; // 0=today
 let inflowData = [];
@@ -417,9 +508,10 @@ async function loadInflow(days){
 }
 
 function buildInflowChart(){
-  if(inflowChart) inflowChart.destroy();
+  if(inflowChart) { try{inflowChart.destroy();}catch(e){} inflowChart=null; }
   const canvas = document.getElementById('cInflow');
-  if(!canvas) return;
+  if(!canvas){ console.warn('cInflow canvas not found'); return; }
+  if(!inflowData.length){ console.warn('No inflow data'); return; }
 
   const today = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}).replace(/ /g,', ');
   const yesterday = new Date(Date.now()-86400000).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}).replace(/ /g,', ');
@@ -632,6 +724,27 @@ function render(){
       <div class="kpi-card kg"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
       <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
       <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
+    </div>
+
+    <!-- INFLOW TREND CHART -->
+    <div class="sec-label">Inflow Trend</div>
+    <div class="chart-card" style="margin-bottom:4px;">
+      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="chart-title">QC Inflow Trend</div>
+          <div class="chart-sub">Today = hourly · Last N days = daily</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="trend-btn active chip" data-days="0" onclick="loadTrend(0)">Today</button>
+          <button class="trend-btn chip" data-days="3" onclick="loadTrend(3)">Last 3 Days</button>
+          <button class="trend-btn chip" data-days="7" onclick="loadTrend(7)">Last 7 Days</button>
+          <button class="trend-btn chip" data-days="15" onclick="loadTrend(15)">Last 15 Days</button>
+          <button class="trend-btn chip" data-days="30" onclick="loadTrend(30)">Last 30 Days</button>
+          <button class="trend-btn chip" data-days="45" onclick="loadTrend(45)">Last 45 Days</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:260px;margin-top:16px;"><canvas id="cTrend"></canvas></div>
+      <div id="trendFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
     </div>
 
     <!-- INFLOW CHART IN PLACE OF FIX ANALYSIS -->
