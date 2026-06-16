@@ -424,8 +424,9 @@ async function loadBacklog(days){
         fetchJSON(backlogTodayURL())
       ]);
       // Get opening backlog = closing backlog of yesterday (second to last row of daily)
+      const getClosingBacklog = (row) => clean(row?.closing_backlog||row?.['closing_backlog']||0);
       const openingBacklog = dailyData && dailyData.length >= 2 
-        ? clean(dailyData[dailyData.length-2].closing_backlog) 
+        ? getClosingBacklog(dailyData[dailyData.length-2])
         : 0;
       backlogData = {type:'hourly', data: todayData||[], opening: openingBacklog};
     } else if(days === 1){
@@ -434,9 +435,10 @@ async function loadBacklog(days){
         fetchJSON(backlogDailyURL(3)),
         fetchJSON(backlogYesterdayURL())
       ]);
+      const getClosingBacklog2 = (row) => clean(row?.closing_backlog||row?.['closing_backlog']||0);
       // Opening backlog = closing backlog of day before yesterday
       const openingBacklog = dailyData && dailyData.length >= 2
-        ? clean(dailyData[dailyData.length-2].closing_backlog)
+        ? getClosingBacklog2(dailyData[dailyData.length-2])
         : 0;
       backlogData = {type:'hourly', data: yesterdayData||[], opening: openingBacklog};
     } else {
@@ -463,22 +465,23 @@ function buildBacklogChart(){
   if(isHourly){
     // Hour 0-23
     const hourMap = {};
-    rawData.forEach(d => { hourMap[d.hour] = d; });
+    rawData.forEach(d => { 
+      const h = d['h.hour'] !== undefined ? d['h.hour'] : (d.hour !== undefined ? d.hour : d['hour']);
+      if(h !== undefined) hourMap[h] = d; 
+    });
     labels = Array.from({length:24}, (_,h) => h.toString().padStart(2,'0')+':00');
     entered = Array.from({length:24}, (_,h) => clean(hourMap[h]?.new_entered||0));
     completed = Array.from({length:24}, (_,h) => clean(hourMap[h]?.completed||0));
-    // Calculate backlog starting from opening
-    backlog = [];
-    let running = opening;
-    for(let h=0; h<24; h++){
-      running += entered[h] - completed[h];
-      backlog.push(running);
-    }
+    // Use closing_backlog from query + add opening backlog offset
+    backlog = Array.from({length:24}, (_,h) => {
+      const val = clean(hourMap[h]?.closing_backlog||0);
+      return val + opening;
+    });
   } else {
-    labels = rawData.map(d => d.date);
-    entered = rawData.map(d => clean(d.new_entered));
-    completed = rawData.map(d => clean(d.completed));
-    backlog = rawData.map(d => clean(d.closing_backlog));
+    labels = rawData.map(d => d['d.date'] || d.date || d['date']);
+    entered = rawData.map(d => clean(d.new_entered||0));
+    completed = rawData.map(d => clean(d.completed||0));
+    backlog = rawData.map(d => clean(d.closing_backlog||0));
   }
 
   const totalEntered = entered.reduce((a,b)=>a+b,0);
