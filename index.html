@@ -430,50 +430,76 @@ function buildTrendChart(){
 
   let labels, values;
 
+  let outflowValues;
   if(trendPeriod === 0){
     // Today - hourly x-axis 0-23
     const hourMap = {};
-    trendData.forEach(d => { hourMap[d.hour_ist] = clean(d.inflow); });
+    const outflowMap = {};
+    trendData.forEach(d => {
+      hourMap[d.hour_ist] = clean(d.inflow);
+      outflowMap[d.hour_ist] = clean(d.outflow);
+    });
     labels = Array.from({length:24},(_,h) => h.toString().padStart(2,'0')+':00');
     values = Array.from({length:24},(_,h) => hourMap[h]||0);
+    outflowValues = Array.from({length:24},(_,h) => outflowMap[h]||0);
   } else {
     // Daily x-axis
     labels = trendData.map(d => d.date_ist);
     values = trendData.map(d => clean(d.inflow));
+    outflowValues = trendData.map(d => clean(d.outflow));
   }
 
-  const total = values.reduce((a,b)=>a+b,0);
+  const totalInflow = values.reduce((a,b)=>a+b,0);
+  const totalOutflow = outflowValues.reduce((a,b)=>a+b,0);
   const peak = Math.max(...values);
-  const avg = Math.round(total/values.filter(v=>v>0).length)||0;
 
   const footer = document.getElementById('trendFooter');
   if(footer) footer.innerHTML = `
-    <span style="color:var(--purple)">● Total Inflow: <b>${fmt(total)}</b></span> &nbsp;·&nbsp;
-    <span style="color:var(--amber)">● Peak: <b>${fmt(peak)}</b></span> &nbsp;·&nbsp;
-    <span style="color:var(--muted)">● Avg: <b>${fmt(avg)}</b></span>
+    <span style="color:var(--purple)">● Total Inflow: <b>${fmt(totalInflow)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--green)">● Total Outflow: <b>${fmt(totalOutflow)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--amber)">● Peak Inflow: <b>${fmt(peak)}</b></span>
   `;
 
   trendChart = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: 'Inflow',
-        data: values,
-        borderColor: '#6B2FD9',
-        backgroundColor: 'rgba(107,47,217,0.08)',
-        tension: 0.4,
-        fill: true,
-        pointRadius: 4,
-        pointBackgroundColor: '#6B2FD9',
-        datalabels: {
-          display: true,
-          anchor: 'end', align: 'top',
-          color: '#6B2FD9',
-          font: {size:9, weight:'700'},
-          formatter: v => v>0 ? fmt(v) : ''
+      datasets: [
+        {
+          label: 'Inflow',
+          data: values,
+          borderColor: '#6B2FD9',
+          backgroundColor: 'rgba(107,47,217,0.08)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#6B2FD9',
+          datalabels: {
+            display: true,
+            anchor: 'end', align: 'top',
+            color: '#6B2FD9',
+            font: {size:9, weight:'700'},
+            formatter: v => v>0 ? fmt(v) : ''
+          }
+        },
+        {
+          label: 'Outflow',
+          data: outflowValues,
+          borderColor: '#059669',
+          backgroundColor: 'rgba(5,150,105,0.08)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#059669',
+          datalabels: {
+            display: true,
+            anchor: 'end', align: 'bottom',
+            color: '#059669',
+            font: {size:9, weight:'700'},
+            formatter: v => v>0 ? fmt(v) : ''
+          }
         }
-      }]
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -731,7 +757,7 @@ function render(){
     <div class="chart-card" style="margin-bottom:4px;">
       <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
         <div>
-          <div class="chart-title">QC Inflow Trend</div>
+          <div class="chart-title">QC Inflow vs Outflow Trend</div>
           <div class="chart-sub">Today = hourly · Last N days = daily</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
