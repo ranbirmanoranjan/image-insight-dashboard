@@ -546,6 +546,18 @@ let backlogPeriod = 0;
 let backlogChartType = 'line';
 let backlogMetrics = {entered: true, completed: true, backlog: true, capacity: true};
 let backlogBuffer = true; // 10% buffer for capacity line
+let dataLabelsOn = true; // show/hide data labels
+
+function toggleDataLabels(){
+  dataLabelsOn = !dataLabelsOn;
+  const btn = document.getElementById('dataLabelsBtn');
+  if(btn){
+    btn.textContent = dataLabelsOn ? 'Labels ON' : 'Labels OFF';
+    btn.style.background = dataLabelsOn ? 'rgba(107,47,217,0.15)' : 'rgba(156,163,175,0.15)';
+    btn.style.color = dataLabelsOn ? 'var(--purple)' : 'var(--muted)';
+  }
+  buildBacklogChart();
+}
 
 function toggleBacklogBuffer(){
   backlogBuffer = !backlogBuffer;
@@ -769,7 +781,8 @@ function buildBacklogChart(){
       pointBackgroundColor: '#2563EB',
       yAxisID: 'y',
       datalabels: {
-        display: true, anchor:'end', align:'top',
+        display: ctx => dataLabelsOn && ctx.dataset.data[ctx.dataIndex] > 0,
+        anchor:'end', align:'top',
         color:'#2563EB', font:{size:9,weight:'700'},
         formatter: v => v>0 ? fmt(v) : ''
       }
@@ -789,7 +802,8 @@ function buildBacklogChart(){
       pointBackgroundColor: '#059669',
       yAxisID: 'y',
       datalabels: {
-        display: true, anchor:'end', align:'top',
+        display: ctx => dataLabelsOn && ctx.dataset.data[ctx.dataIndex] > 0,
+        anchor:'end', align:'top',
         color:'#059669', font:{size:9,weight:'700'},
         formatter: v => v>0 ? fmt(v) : ''
       }
@@ -807,7 +821,12 @@ function buildBacklogChart(){
       pointRadius: 0,
       yAxisID: 'y',
       spanGaps: true,
-      datalabels: { display: false }
+      datalabels: {
+        display: ctx => dataLabelsOn && ctx.dataset.data[ctx.dataIndex] !== null,
+        anchor:'end', align:'top',
+        color:'#D97706', font:{size:9,weight:'700'},
+        formatter: v => v !== null ? fmt(v) : ''
+      }
     });
   }
 
@@ -824,7 +843,8 @@ function buildBacklogChart(){
       yAxisID: 'y2',
       spanGaps: true,
       datalabels: {
-        display: true, anchor:'end', align:'top',
+        display: ctx => dataLabelsOn && ctx.dataset.data[ctx.dataIndex] !== null && ctx.dataset.data[ctx.dataIndex] > 0,
+        anchor:'end', align:'top',
         color:'#DC2626', font:{size:9,weight:'700'},
         formatter: v => v !== null && v > 0 ? fmt(v) : ''
       }
@@ -1255,31 +1275,11 @@ function render(){
           <button class="metric-btn active chip" data-metric="capacity" onclick="toggleBacklogMetric('capacity')" style="background:rgba(245,158,11,0.15);color:#D97706;">● Capacity</button>
           <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
           <button id="backlogBufferBtn" onclick="toggleBacklogBuffer()" style="background:rgba(107,47,217,0.15);color:var(--purple);border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">10% Buffer ON</button>
+          <button id="dataLabelsBtn" onclick="toggleDataLabels()" style="background:rgba(107,47,217,0.15);color:var(--purple);border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Labels ON</button>
         </div>
       </div>
       <div class="chart-wrap" style="height:300px;margin-top:16px;"><canvas id="cBacklog"></canvas></div>
       <div id="backlogFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
-    </div>
-
-    <!-- INFLOW TREND CHART -->
-    <div class="sec-label">Inflow Trend</div>
-    <div class="chart-card" style="margin-bottom:4px;">
-      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div class="chart-title">QC Inflow vs Outflow Trend</div>
-          <div class="chart-sub">Today = hourly · Last N days = daily</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="trend-btn active chip" data-days="0" onclick="loadTrend(0)">Today</button>
-          <button class="trend-btn chip" data-days="3" onclick="loadTrend(3)">Last 3 Days</button>
-          <button class="trend-btn chip" data-days="7" onclick="loadTrend(7)">Last 7 Days</button>
-          <button class="trend-btn chip" data-days="15" onclick="loadTrend(15)">Last 15 Days</button>
-          <button class="trend-btn chip" data-days="30" onclick="loadTrend(30)">Last 30 Days</button>
-          <button class="trend-btn chip" data-days="45" onclick="loadTrend(45)">Last 45 Days</button>
-        </div>
-      </div>
-      <div class="chart-wrap" style="height:260px;margin-top:16px;"><canvas id="cTrend"></canvas></div>
-      <div id="trendFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
     </div>
 
     <!-- CHARTS: SEGMENT TRENDS -->
