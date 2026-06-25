@@ -957,21 +957,33 @@ function render(){
     <!-- BACKLOG CHART -->
     <div class="sec-label">QC Backlog Trend</div>
     <div class="chart-card" style="margin-bottom:4px;">
-      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <div>
           <div class="chart-title">QC Backlog</div>
-          <div class="chart-sub">New Entered · Completed · Closing Backlog</div>
+          <div class="chart-sub" id="backlogSub">Today · Hour by Hour</div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <!-- Period buttons -->
           <button class="backlog-btn active chip" data-days="0" onclick="loadBacklog(0)">Today</button>
           <button class="backlog-btn chip" data-days="1" onclick="loadBacklog(1)">Yesterday</button>
           <button class="backlog-btn chip" data-days="7" onclick="loadBacklog(7)">Last 7 Days</button>
           <button class="backlog-btn chip" data-days="15" onclick="loadBacklog(15)">Last 15 Days</button>
           <button class="backlog-btn chip" data-days="30" onclick="loadBacklog(30)">Last 30 Days</button>
           <button class="backlog-btn chip" data-days="45" onclick="loadBacklog(45)">Last 45 Days</button>
+          <!-- Divider -->
+          <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
+          <!-- Chart type -->
+          <button class="chart-type-btn active chip" data-type="line" onclick="setBacklogType('line')">〜 Curve</button>
+          <button class="chart-type-btn chip" data-type="bar" onclick="setBacklogType('bar')">▐ Bar</button>
+          <!-- Divider -->
+          <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
+          <!-- Metric toggles -->
+          <button class="metric-btn active chip" data-metric="entered" onclick="toggleBacklogMetric('entered')" style="background:rgba(37,99,235,0.15);color:#2563EB;">● New Entered</button>
+          <button class="metric-btn active chip" data-metric="completed" onclick="toggleBacklogMetric('completed')" style="background:rgba(5,150,105,0.15);color:#059669;">● Completed</button>
+          <button class="metric-btn active chip" data-metric="backlog" onclick="toggleBacklogMetric('backlog')" style="background:rgba(220,38,38,0.15);color:#DC2626;">● Actual Backlog</button>
         </div>
       </div>
-      <div class="chart-wrap" style="height:280px;margin-top:16px;"><canvas id="cBacklog"></canvas></div>
+      <div class="chart-wrap" style="height:300px;margin-top:16px;"><canvas id="cBacklog"></canvas></div>
       <div id="backlogFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
     </div>
 
