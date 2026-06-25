@@ -599,7 +599,7 @@ async function loadBacklog(days){
       const [dailyData, todayData, historyData] = await Promise.all([
         fetchJSON(backlogDailyURL(2)),
         fetchJSON(backlogTodayURL()),
-        fetchJSON(backlogHistoryURL(1))
+        fetchJSON(backlogHistoryURL(3))
       ]);
       // Get opening backlog = closing backlog of yesterday (second to last row of daily)
       const getClosingBacklog = (row) => clean(row?.closing_backlog||row?.['closing_backlog']||0);
@@ -612,7 +612,7 @@ async function loadBacklog(days){
       const [dailyData, yesterdayData, historyData] = await Promise.all([
         fetchJSON(backlogDailyURL(3)),
         fetchJSON(backlogYesterdayURL()),
-        fetchJSON(backlogHistoryURL(2))
+        fetchJSON(backlogHistoryURL(3))
       ]);
       const getClosingBacklog2 = (row) => clean(row?.closing_backlog||row?.['closing_backlog']||0);
       // Opening backlog = closing backlog of day before yesterday
