@@ -494,8 +494,24 @@ function buildBacklogChart(){
   const history = backlogData.history || [];
   let actualBacklog = new Array(labels.length).fill(null);
 
+  // Helper: extract YYYY-MM-DD from timestamp or date field
+  const extractDate = (h) => {
+    // First try date field if it looks like YYYY-MM-DD
+    if(h.date && String(h.date).match(/^\d{4}-\d{2}-\d{2}$/)){
+      return h.date;
+    }
+    // Fall back to parsing timestamp
+    if(h.timestamp){
+      const d = new Date(h.timestamp);
+      if(!isNaN(d)){
+        const ist = new Date(d.toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+        return ist.getFullYear()+'-'+String(ist.getMonth()+1).padStart(2,'0')+'-'+String(ist.getDate()).padStart(2,'0');
+      }
+    }
+    return '';
+  };
+
   if(isHourly){
-    // Match history to today's/yesterday's hours
     const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
     let targetDate;
     if(backlogPeriod === 0){
@@ -504,36 +520,17 @@ function buildBacklogChart(){
       const yest = new Date(nowIST); yest.setDate(yest.getDate()-1);
       targetDate = yest.getFullYear()+'-'+String(yest.getMonth()+1).padStart(2,'0')+'-'+String(yest.getDate()).padStart(2,'0');
     }
-    console.log('Target date:', targetDate, 'History rows:', history.length);
     history.forEach(h => {
-      // Handle various date formats from GSheet
-      let hDate = '';
-      if(h.date){
-        hDate = String(h.date).split('T')[0].trim();
-        // Handle "Thu Jun 25 2026..." format
-        if(hDate.length > 10) {
-          const d = new Date(h.date);
-          hDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        }
-      }
+      const hDate = extractDate(h);
       if(hDate === targetDate){
         const hr = parseInt(h.hour);
         if(hr >= 0 && hr < 24) actualBacklog[hr] = clean(h.backlog_count);
       }
     });
-    console.log('Actual backlog points:', actualBacklog.filter(v=>v!==null).length);
   } else {
-    // Match history to dates — use last reading per day
     const dateMap = {};
     history.forEach(h => {
-      let hDate = '';
-      if(h.date){
-        hDate = String(h.date).split('T')[0].trim();
-        if(hDate.length > 10){
-          const d = new Date(h.date);
-          hDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        }
-      }
+      const hDate = extractDate(h);
       if(!dateMap[hDate] || parseInt(h.hour) >= parseInt(dateMap[hDate].hour||0)){
         dateMap[hDate] = {backlog: clean(h.backlog_count), hour: h.hour};
       }
