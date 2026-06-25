@@ -518,15 +518,17 @@ function buildBacklogChart(){
 
   const totalEntered = entered.reduce((a,b)=>a+b,0);
   const totalCompleted = completed.reduce((a,b)=>a+b,0);
-  const peakBacklog = Math.max(...backlog);
-  const endBacklog = backlog[backlog.length-1];
+  const actualValues = actualBacklog.filter(v => v !== null);
+  const peakBacklog = actualValues.length > 0 ? Math.max(...actualValues) : Math.max(...backlog.filter(v=>v>0));
+  const endBacklog = actualValues.length > 0 ? actualValues[actualValues.length-1] : backlog[backlog.length-1];
 
   const footer = document.getElementById('backlogFooter');
   if(footer) footer.innerHTML = `
     <span style="color:#2563EB">● New Entered: <b>${fmt(totalEntered)}</b></span> &nbsp;·&nbsp;
     <span style="color:#059669">● Completed: <b>${fmt(totalCompleted)}</b></span> &nbsp;·&nbsp;
     <span style="color:#DC2626">● Peak Backlog: <b>${fmt(peakBacklog)}</b></span> &nbsp;·&nbsp;
-    <span style="color:#DC2626">● End Backlog: <b>${fmt(endBacklog)}</b></span>
+    <span style="color:#DC2626">● End Backlog: <b>${fmt(endBacklog)}</b></span> &nbsp;·&nbsp;
+    <span style="color:var(--muted)">● Actual data points: <b>${actualBacklog.filter(v=>v!==null).length}</b></span>
   `;
 
   backlogChart = new Chart(canvas, {
@@ -548,29 +550,17 @@ function buildBacklogChart(){
           datalabels: { display: false }
         },
         {
-          type: 'line', label: 'Backlog (calculated)',
-          data: backlog,
+          type: 'line', label: 'Actual Backlog',
+          data: actualBacklog,
           borderColor: '#DC2626',
           backgroundColor: 'transparent',
-          borderDash: [6,3], tension: 0.4,
-          pointRadius: 3, pointBackgroundColor: '#DC2626',
+          borderDash: [6,3], borderWidth: 2, tension: 0.4,
+          pointRadius: 4, pointBackgroundColor: '#DC2626',
           yAxisID: 'y2',
           datalabels: {
             display: true, anchor:'end', align:'top',
             color:'#DC2626', font:{size:9,weight:'700'},
-            formatter: v => v>0 ? fmt(v) : ''
-          }
-        },
-        {
-          type: 'line', label: 'Actual Backlog',
-          data: actualBacklog,
-          borderColor: '#7C3AED',
-          backgroundColor: 'transparent',
-          borderWidth: 2, tension: 0.4,
-          pointRadius: 4, pointBackgroundColor: '#7C3AED',
-          yAxisID: 'y2',
-          datalabels: {
-            display: false
+            formatter: v => v !== null && v > 0 ? fmt(v) : ''
           }
         }
       ]
