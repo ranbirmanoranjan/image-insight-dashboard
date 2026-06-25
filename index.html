@@ -290,14 +290,23 @@ async function fetchJSON(url){
     const r=await fetch(url);
     const j=await r.json();
 
-    if(Array.isArray(j)&&j.length) return j;
+    // Array response
+    if(Array.isArray(j)) return j;
 
+    // Metabase data.rows format
     if(j?.data?.rows){
       const cols=j.data.cols.map(c=>c.name);
       return j.data.rows.map(row=>
         Object.fromEntries(cols.map((c,i)=>[c,row[i]]))
       );
     }
+
+    // Plain object response (e.g. roster, backlog_history)
+    if(j && typeof j === 'object' && !j.error) return j;
+
+    // Error response
+    if(j?.error) console.warn('API error:', j.error);
+
   }catch(e){
     console.warn('Fetch failed:',e);
   }
@@ -416,8 +425,13 @@ const IMAGES_PER_PERSON_DAY = 4800;
 async function loadRoster(){
   try {
     const data = await fetchJSON(rosterURL());
-    if(data && data.shifts) rosterData = data;
-  } catch(e){ console.warn('Roster fetch failed', e); }
+    console.log('Roster data:', data);
+    if(data && data.shifts){
+      rosterData = data;
+    } else if(data && data.error){
+      console.error('Roster error:', data.error);
+    }
+  } catch(e){ console.error('Roster fetch failed:', e); }
   buildRoster();
 }
 
@@ -441,7 +455,8 @@ function buildRoster(){
     return;
   }
 
-  // Update date range
+  // Update subtitle with date range
+  const subEl = document.querySelector('#rosterSection').previousElementSibling;
   const drEl = document.getElementById('rosterDateRange');
   if(drEl && rosterData.dateRange) drEl.textContent = rosterData.dateRange;
 
