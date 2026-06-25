@@ -999,6 +999,27 @@ function render(){
       <div id="trendFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
     </div>
 
+    <!-- INFLOW TREND CHART -->
+    <div class="sec-label">Inflow Trend</div>
+    <div class="chart-card" style="margin-bottom:4px;">
+      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="chart-title">QC Inflow vs Outflow Trend</div>
+          <div class="chart-sub">Today = hourly · Last N days = daily</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="trend-btn active chip" data-days="0" onclick="loadTrend(0)">Today</button>
+          <button class="trend-btn chip" data-days="3" onclick="loadTrend(3)">Last 3 Days</button>
+          <button class="trend-btn chip" data-days="7" onclick="loadTrend(7)">Last 7 Days</button>
+          <button class="trend-btn chip" data-days="15" onclick="loadTrend(15)">Last 15 Days</button>
+          <button class="trend-btn chip" data-days="30" onclick="loadTrend(30)">Last 30 Days</button>
+          <button class="trend-btn chip" data-days="45" onclick="loadTrend(45)">Last 45 Days</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:260px;margin-top:16px;"><canvas id="cTrend"></canvas></div>
+      <div id="trendFooter" style="margin-top:12px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;"></div>
+    </div>
+
     <!-- INFLOW CHART IN PLACE OF FIX ANALYSIS -->
     <div class="sec-label">Hourly Throughput · QC Inflow vs Outflow</div>
     <div class="chart-card" style="margin-bottom:4px;">
