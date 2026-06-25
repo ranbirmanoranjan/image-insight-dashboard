@@ -496,31 +496,56 @@ function buildBacklogChart(){
 
   if(isHourly){
     // Match history to today's/yesterday's hours
-    const targetDate = backlogPeriod === 0 
-      ? new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'})
-      : new Date(Date.now()-86400000).toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+    const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+    let targetDate;
+    if(backlogPeriod === 0){
+      targetDate = nowIST.getFullYear()+'-'+String(nowIST.getMonth()+1).padStart(2,'0')+'-'+String(nowIST.getDate()).padStart(2,'0');
+    } else {
+      const yest = new Date(nowIST); yest.setDate(yest.getDate()-1);
+      targetDate = yest.getFullYear()+'-'+String(yest.getMonth()+1).padStart(2,'0')+'-'+String(yest.getDate()).padStart(2,'0');
+    }
+    console.log('Target date:', targetDate, 'History rows:', history.length);
     history.forEach(h => {
-      const hDate = h.date ? h.date.split('T')[0] : '';
+      // Handle various date formats from GSheet
+      let hDate = '';
+      if(h.date){
+        hDate = String(h.date).split('T')[0].trim();
+        // Handle "Thu Jun 25 2026..." format
+        if(hDate.length > 10) {
+          const d = new Date(h.date);
+          hDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        }
+      }
       if(hDate === targetDate){
         const hr = parseInt(h.hour);
         if(hr >= 0 && hr < 24) actualBacklog[hr] = clean(h.backlog_count);
       }
     });
+    console.log('Actual backlog points:', actualBacklog.filter(v=>v!==null).length);
   } else {
-    // Match history to dates
+    // Match history to dates — use last reading per day
     const dateMap = {};
     history.forEach(h => {
-      const d = h.date ? h.date.split('T')[0] : '';
-      if(!dateMap[d] || h.hour === 23) dateMap[d] = clean(h.backlog_count);
+      let hDate = '';
+      if(h.date){
+        hDate = String(h.date).split('T')[0].trim();
+        if(hDate.length > 10){
+          const d = new Date(h.date);
+          hDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        }
+      }
+      if(!dateMap[hDate] || parseInt(h.hour) >= parseInt(dateMap[hDate].hour||0)){
+        dateMap[hDate] = {backlog: clean(h.backlog_count), hour: h.hour};
+      }
     });
-    actualBacklog = labels.map(l => dateMap[l] !== undefined ? dateMap[l] : null);
+    actualBacklog = labels.map(l => dateMap[l] !== undefined ? dateMap[l].backlog : null);
   }
 
   const totalEntered = entered.reduce((a,b)=>a+b,0);
   const totalCompleted = completed.reduce((a,b)=>a+b,0);
   const actualValues = actualBacklog.filter(v => v !== null);
-  const peakBacklog = actualValues.length > 0 ? Math.max(...actualValues) : Math.max(...backlog.filter(v=>v>0));
-  const endBacklog = actualValues.length > 0 ? actualValues[actualValues.length-1] : backlog[backlog.length-1];
+  const peakBacklog = actualValues.length > 0 ? Math.max(...actualValues) : 0;
+  const endBacklog = actualValues.length > 0 ? actualValues[actualValues.length-1] : 0;
 
   const footer = document.getElementById('backlogFooter');
   if(footer) footer.innerHTML = `
