@@ -617,7 +617,7 @@ async function loadBacklog(days){
       const openingBacklog = dailyData && dailyData.length >= 2
         ? getClosingBacklog2(dailyData[dailyData.length-2])
         : 0;
-      backlogData = {type:'hourly', data: yesterdayData||[], opening: openingBacklog, history: []};
+      backlogData = {type:'hourly', data: yesterdayData||[], opening: openingBacklog, history: historyData||[]};
     } else {
       // Date-wise: fetch flow data + GSheet history
       const [flowData, historyData] = await Promise.all([
