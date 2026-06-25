@@ -161,6 +161,7 @@ function backlogTodayURL(){ return `${GAS}?report=backlog_today`; }
 function backlogYesterdayURL(){ return `${GAS}?report=backlog_yesterday`; }
 function backlogDailyURL(days){ return `${GAS}?report=backlog_daily&days=${days}`; }
 function backlogHistoryURL(days){ return `${GAS}?report=backlog_history&days=${days}`; }
+function rosterURL(){ return `${GAS}?report=roster`; }
 
 // Embedded fallback data
 const FALLBACK = {
@@ -367,6 +368,7 @@ async function loadAll(){
   setTimeout(()=>loadInflow(0), 100); // load today's inflow after render completes
   setTimeout(()=>loadTrend(0), 200);  // load today's inflow trend
   setTimeout(()=>loadBacklog(0), 300); // load today's backlog
+  setTimeout(()=>loadRoster(), 400);    // load roster
 }
 
 function getMonths(){return[...new Set(allData.main.map(d=>d.Month))];}
@@ -406,8 +408,143 @@ function aggregated(rows){
 
 function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={};}
 
+// Roster state
+let rosterData = null;
+let rosterBuffer = true; // 10% buffer toggle
+const IMAGES_PER_PERSON_DAY = 4800;
+
+async function loadRoster(){
+  try {
+    const data = await fetchJSON(rosterURL());
+    if(data && data.shifts) rosterData = data;
+  } catch(e){ console.warn('Roster fetch failed', e); }
+  buildRoster();
+}
+
+function toggleBuffer(){
+  rosterBuffer = !rosterBuffer;
+  const btn = document.getElementById('bufferBtn');
+  if(btn){
+    btn.textContent = rosterBuffer ? '10% Buffer ON' : '10% Buffer OFF';
+    btn.style.background = rosterBuffer ? 'rgba(107,47,217,0.15)' : 'rgba(156,163,175,0.15)';
+    btn.style.color = rosterBuffer ? 'var(--purple)' : 'var(--muted)';
+  }
+  buildRoster();
+}
+
+function buildRoster(){
+  const el = document.getElementById('rosterSection');
+  if(!el) return;
+
+  if(!rosterData || !rosterData.shifts){
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;">Loading roster...</div>';
+    return;
+  }
+
+  // Update date range
+  const drEl = document.getElementById('rosterDateRange');
+  if(drEl && rosterData.dateRange) drEl.textContent = rosterData.dateRange;
+
+  const bufferFactor = rosterBuffer ? 0.9 : 1.0;
+  const shifts = rosterData.shifts;
+
+  // Parse shift timings to get active hours
+  const parseHours = (timing) => {
+    // e.g. "02:00AM to 11:00AM" → 9 hours
+    try {
+      const parts = timing.split(' to ');
+      if(parts.length < 2) return 9;
+      const toTime = (t) => {
+        const m = t.trim().match(/(\d+):(\d+)(AM|PM)/i);
+        if(!m) return 0;
+        let h = parseInt(m[1]), min = parseInt(m[2]);
+        if(m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+        if(m[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        return h + min/60;
+      };
+      let start = toTime(parts[0]), end = toTime(parts[1]);
+      if(end < start) end += 24; // overnight shift
+      return Math.round(end - start);
+    } catch(e){ return 9; }
+  };
+
+  let totalCapacity = 0;
+  const shiftCards = shifts.map((shift, i) => {
+    const count = shift.employees.length;
+    const hours = parseHours(shift.timing);
+    const rawCapacity = count * IMAGES_PER_PERSON_DAY;
+    const capacity = Math.round(rawCapacity * bufferFactor);
+    const hourlyCapacity = Math.round(capacity / hours);
+    totalCapacity += capacity;
+
+    const colors = ['#2563EB','#059669','#7C3AED'];
+    const bgs = ['rgba(37,99,235,0.08)','rgba(5,150,105,0.08)','rgba(124,58,237,0.08)'];
+
+    return `
+      <div style="flex:1;min-width:200px;background:${bgs[i]};border-radius:12px;padding:16px;border:1px solid ${colors[i]}22;">
+        <div style="font-weight:700;color:${colors[i]};font-size:13px;margin-bottom:4px;">${shift.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">⏰ ${shift.timing}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">👥 Employees</span>
+          <span style="font-weight:700;color:var(--text);">${count}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">📸 Daily Capacity</span>
+          <span style="font-weight:700;color:${colors[i]};">${fmt(capacity)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">⚡ Per Hour</span>
+          <span style="font-weight:700;color:${colors[i]};">${fmt(hourlyCapacity)}</span>
+        </div>
+        ${rosterBuffer ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid ${colors[i]}22;">Raw: ${fmt(rawCapacity)} · Buffer: -${fmt(rawCapacity-capacity)}</div>` : ''}
+        <div style="margin-top:10px;max-height:120px;overflow-y:auto;">
+          ${shift.employees.map(e => `<div style="font-size:11px;color:var(--text);padding:2px 0;border-bottom:1px solid var(--border);">👤 ${e}</div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      ${shiftCards}
+      <div style="flex:1;min-width:200px;background:var(--surface2);border-radius:12px;padding:16px;border:1px solid var(--border);">
+        <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:12px;">📊 Total Capacity</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">All Shifts</span>
+          <span style="font-weight:700;color:var(--purple);font-size:16px;">${fmt(totalCapacity)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">Per Hour Avg</span>
+          <span style="font-weight:700;color:var(--text);">${fmt(Math.round(totalCapacity/24))}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);">Total Employees</span>
+          <span style="font-weight:700;color:var(--text);">${shifts.reduce((a,s)=>a+s.employees.length,0)}</span>
+        </div>
+        ${rosterBuffer?`<div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">10% buffer applied</div>`:''}
+      </div>
+    </div>
+  `;
+}
+
 // Backlog chart state
 let backlogPeriod = 0;
+let backlogChartType = 'line';
+let backlogMetrics = {entered: true, completed: true, backlog: true};
+
+function setBacklogType(type){
+  backlogChartType = type;
+  document.querySelectorAll('.chart-type-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === type);
+  });
+  buildBacklogChart();
+}
+
+function toggleBacklogMetric(metric){
+  backlogMetrics[metric] = !backlogMetrics[metric];
+  const btn = document.querySelector(`.metric-btn[data-metric="${metric}"]`);
+  if(btn) btn.classList.toggle('active', backlogMetrics[metric]);
+  buildBacklogChart();
+}
 let backlogData = [];
 let backlogChart = null;
 
@@ -465,42 +602,36 @@ function buildBacklogChart(){
   const isHourly = backlogData.type === 'hourly';
   const opening = backlogData.opening || 0;
   const rawData = backlogData.data;
+  const history = backlogData.history || [];
 
-  let labels, entered, completed, backlog;
+  // Update subtitle
+  const sub = document.getElementById('backlogSub');
+  if(sub){
+    const periods = {0:'Today · Hour by Hour',1:'Yesterday · Hour by Hour',7:'Last 7 Days · Daily',15:'Last 15 Days · Daily',30:'Last 30 Days · Daily',45:'Last 45 Days · Daily'};
+    sub.textContent = periods[backlogPeriod]||'';
+  }
+
+  let labels, entered, completed;
 
   if(isHourly){
-    // Hour 0-23
     const hourMap = {};
-    rawData.forEach(d => { 
+    rawData.forEach(d => {
       const h = d['h.hour'] !== undefined ? d['h.hour'] : (d.hour !== undefined ? d.hour : d['hour']);
-      if(h !== undefined) hourMap[h] = d; 
+      if(h !== undefined) hourMap[h] = d;
     });
     labels = Array.from({length:24}, (_,h) => h.toString().padStart(2,'0')+':00');
     entered = Array.from({length:24}, (_,h) => clean(hourMap[h]?.new_entered||0));
     completed = Array.from({length:24}, (_,h) => clean(hourMap[h]?.completed||0));
-    // Use closing_backlog from query + add opening backlog offset
-    backlog = Array.from({length:24}, (_,h) => {
-      const val = clean(hourMap[h]?.closing_backlog||0);
-      return val + opening;
-    });
   } else {
     labels = rawData.map(d => d['d.date'] || d.date || d['date']);
     entered = rawData.map(d => clean(d.new_entered||0));
     completed = rawData.map(d => clean(d.completed||0));
-    backlog = rawData.map(d => clean(d.closing_backlog||0));
   }
 
-  // Build actual backlog from GSheet history
-  const history = backlogData.history || [];
+  // Extract actual backlog from GSheet history
   let actualBacklog = new Array(labels.length).fill(null);
-
-  // Helper: extract YYYY-MM-DD from timestamp or date field
   const extractDate = (h) => {
-    // First try date field if it looks like YYYY-MM-DD
-    if(h.date && String(h.date).match(/^\d{4}-\d{2}-\d{2}$/)){
-      return h.date;
-    }
-    // Fall back to parsing timestamp
+    if(h.date && String(h.date).match(/^\d{4}-\d{2}-\d{2}$/)) return h.date;
     if(h.timestamp){
       const d = new Date(h.timestamp);
       if(!isNaN(d)){
@@ -538,55 +669,86 @@ function buildBacklogChart(){
     actualBacklog = labels.map(l => dateMap[l] !== undefined ? dateMap[l].backlog : null);
   }
 
-  const totalEntered = entered.reduce((a,b)=>a+b,0);
-  const totalCompleted = completed.reduce((a,b)=>a+b,0);
   const actualValues = actualBacklog.filter(v => v !== null);
   const peakBacklog = actualValues.length > 0 ? Math.max(...actualValues) : 0;
   const endBacklog = actualValues.length > 0 ? actualValues[actualValues.length-1] : 0;
+  const totalEntered = entered.reduce((a,b)=>a+b,0);
+  const totalCompleted = completed.reduce((a,b)=>a+b,0);
 
   const footer = document.getElementById('backlogFooter');
   if(footer) footer.innerHTML = `
-    <span style="color:#2563EB">● New Entered: <b>${fmt(totalEntered)}</b></span> &nbsp;·&nbsp;
-    <span style="color:#059669">● Completed: <b>${fmt(totalCompleted)}</b></span> &nbsp;·&nbsp;
-    <span style="color:#DC2626">● Peak Backlog: <b>${fmt(peakBacklog)}</b></span> &nbsp;·&nbsp;
-    <span style="color:#DC2626">● End Backlog: <b>${fmt(endBacklog)}</b></span> &nbsp;·&nbsp;
-    <span style="color:var(--muted)">● Actual data points: <b>${actualBacklog.filter(v=>v!==null).length}</b></span>
+    ${backlogMetrics.entered?`<span style="color:#2563EB">● New Entered: <b>${fmt(totalEntered)}</b></span> &nbsp;·&nbsp;`:''}
+    ${backlogMetrics.completed?`<span style="color:#059669">● Completed: <b>${fmt(totalCompleted)}</b></span> &nbsp;·&nbsp;`:''}
+    ${backlogMetrics.backlog && actualValues.length>0?`<span style="color:#DC2626">● Peak Backlog: <b>${fmt(peakBacklog)}</b></span> &nbsp;·&nbsp;<span style="color:#DC2626">● End Backlog: <b>${fmt(endBacklog)}</b></span> &nbsp;·&nbsp;`:''}
+    <span style="color:var(--muted)">● Data points: <b>${actualValues.length}</b></span>
   `;
 
+  const datasets = [];
+
+  if(backlogMetrics.entered){
+    datasets.push({
+      type: backlogChartType,
+      label: 'New Entered',
+      data: entered,
+      borderColor: '#2563EB',
+      backgroundColor: backlogChartType==='line' ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.7)',
+      borderWidth: 2, tension: 0.4,
+      fill: backlogChartType==='line',
+      pointRadius: backlogChartType==='line' ? 4 : 0,
+      pointBackgroundColor: '#2563EB',
+      yAxisID: 'y',
+      datalabels: {
+        display: true, anchor:'end', align:'top',
+        color:'#2563EB', font:{size:9,weight:'700'},
+        formatter: v => v>0 ? fmt(v) : ''
+      }
+    });
+  }
+
+  if(backlogMetrics.completed){
+    datasets.push({
+      type: backlogChartType,
+      label: 'Completed',
+      data: completed,
+      borderColor: '#059669',
+      backgroundColor: backlogChartType==='line' ? 'rgba(5,150,105,0.08)' : 'rgba(5,150,105,0.7)',
+      borderWidth: 2, tension: 0.4,
+      fill: backlogChartType==='line',
+      pointRadius: backlogChartType==='line' ? 4 : 0,
+      pointBackgroundColor: '#059669',
+      yAxisID: 'y',
+      datalabels: {
+        display: true, anchor:'end', align:'top',
+        color:'#059669', font:{size:9,weight:'700'},
+        formatter: v => v>0 ? fmt(v) : ''
+      }
+    });
+  }
+
+  if(backlogMetrics.backlog){
+    datasets.push({
+      type: 'line',
+      label: 'Actual Backlog',
+      data: actualBacklog,
+      borderColor: '#DC2626',
+      backgroundColor: 'rgba(220,38,38,0.05)',
+      borderWidth: 2, tension: 0.4,
+      fill: true,
+      pointRadius: 4, pointBackgroundColor: '#DC2626',
+      yAxisID: 'y2',
+      spanGaps: true,
+      datalabels: {
+        display: true, anchor:'end', align:'top',
+        color:'#DC2626', font:{size:9,weight:'700'},
+        formatter: v => v !== null && v > 0 ? fmt(v) : ''
+      }
+    });
+  }
+
+  const hasBacklog = backlogMetrics.backlog && actualValues.length > 0;
+
   backlogChart = new Chart(canvas, {
-    data: {
-      labels,
-      datasets: [
-        {
-          type: 'bar', label: 'New Entered',
-          data: entered,
-          backgroundColor: 'rgba(37,99,235,0.7)',
-          borderColor: '#2563EB', borderWidth: 1,
-          datalabels: { display: false }
-        },
-        {
-          type: 'bar', label: 'Completed',
-          data: completed,
-          backgroundColor: 'rgba(5,150,105,0.7)',
-          borderColor: '#059669', borderWidth: 1,
-          datalabels: { display: false }
-        },
-        {
-          type: 'line', label: 'Actual Backlog',
-          data: actualBacklog,
-          borderColor: '#DC2626',
-          backgroundColor: 'transparent',
-          borderDash: [6,3], borderWidth: 2, tension: 0.4,
-          pointRadius: 4, pointBackgroundColor: '#DC2626',
-          yAxisID: 'y2',
-          datalabels: {
-            display: true, anchor:'end', align:'top',
-            color:'#DC2626', font:{size:9,weight:'700'},
-            formatter: v => v !== null && v > 0 ? fmt(v) : ''
-          }
-        }
-      ]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
@@ -597,7 +759,12 @@ function buildBacklogChart(){
       scales: {
         x: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'} },
         y: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'}, beginAtZero:true },
-        y2: { position:'right', ticks:{color:'#DC2626',font:{family:'Plus Jakarta Sans',size:10}}, grid:{display:false} }
+        y2: {
+          display: hasBacklog,
+          position:'right',
+          ticks:{color:'#DC2626',font:{family:'Plus Jakarta Sans',size:10}},
+          grid:{display:false}
+        }
       }
     }
   });
@@ -952,6 +1119,24 @@ function render(){
       <div class="kpi-card kg"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
       <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
       <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
+    </div>
+
+    <!-- ROSTER SECTION -->
+    <div class="sec-label">Throughput Capacity · Shift Roster</div>
+    <div class="chart-card" style="margin-bottom:4px;">
+      <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="chart-title">Shift Capacity</div>
+          <div class="chart-sub" id="rosterDateRange">Loading roster...</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:11px;color:var(--muted);">4,800 images/person/day</span>
+          <button id="bufferBtn" onclick="toggleBuffer()" style="background:rgba(107,47,217,0.15);color:var(--purple);border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">10% Buffer ON</button>
+        </div>
+      </div>
+      <div id="rosterSection" style="margin-top:16px;">
+        <div style="text-align:center;color:var(--muted);padding:24px;">Loading roster data...</div>
+      </div>
     </div>
 
     <!-- BACKLOG CHART -->
