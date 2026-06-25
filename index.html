@@ -529,7 +529,19 @@ function buildRoster(){
 // Backlog chart state
 let backlogPeriod = 0;
 let backlogChartType = 'line';
-let backlogMetrics = {entered: true, completed: true, backlog: true};
+let backlogMetrics = {entered: true, completed: true, backlog: true, capacity: true};
+let backlogBuffer = true; // 10% buffer for capacity line
+
+function toggleBacklogBuffer(){
+  backlogBuffer = !backlogBuffer;
+  const btn = document.getElementById('backlogBufferBtn');
+  if(btn){
+    btn.textContent = backlogBuffer ? '10% Buffer ON' : '10% Buffer OFF';
+    btn.style.background = backlogBuffer ? 'rgba(107,47,217,0.15)' : 'rgba(156,163,175,0.15)';
+    btn.style.color = backlogBuffer ? 'var(--purple)' : 'var(--muted)';
+  }
+  buildBacklogChart();
+}
 
 function setBacklogType(type){
   backlogChartType = type;
@@ -669,6 +681,49 @@ function buildBacklogChart(){
     actualBacklog = labels.map(l => dateMap[l] !== undefined ? dateMap[l].backlog : null);
   }
 
+  // Calculate hourly capacity from roster
+  let capacityLine = new Array(labels.length).fill(null);
+  if(rosterData && rosterData.shifts && backlogMetrics.capacity){
+    const bufferFactor = backlogBuffer ? 0.9 : 1.0;
+    const parseTime = (t) => {
+      const m = t.trim().match(/(\d+):(\d+)(AM|PM)/i);
+      if(!m) return -1;
+      let h = parseInt(m[1]);
+      if(m[3].toUpperCase()==='PM' && h!==12) h+=12;
+      if(m[3].toUpperCase()==='AM' && h===12) h=0;
+      return h;
+    };
+    const shifts = rosterData.shifts.map(s => {
+      const parts = s.timing.split(' to ');
+      const start = parts.length>1 ? parseTime(parts[0]) : -1;
+      const endRaw = parts.length>1 ? parseTime(parts[1]) : -1;
+      const hours = s.timing ? (() => {
+        let e = endRaw; const st = start;
+        if(e < st) e += 24;
+        return Math.round(e - st);
+      })() : 9;
+      const dailyCap = Math.round(s.employees.length * 4800 * bufferFactor);
+      return { start, endRaw, hours, hourly: Math.round(dailyCap / hours) };
+    });
+
+    if(isHourly){
+      capacityLine = Array.from({length:24}, (_,h) => {
+        let total = 0;
+        shifts.forEach(s => {
+          if(s.start < 0) return;
+          const end = s.endRaw < s.start ? s.endRaw + 24 : s.endRaw;
+          const hAdj = h < s.start ? h + 24 : h;
+          if(hAdj >= s.start && hAdj < end) total += s.hourly;
+        });
+        return total > 0 ? total : null;
+      });
+    } else {
+      // For daily view show total daily capacity
+      const totalDaily = shifts.reduce((a,s) => a + Math.round(s.employees.length * 4800 * bufferFactor), 0);
+      capacityLine = labels.map(() => totalDaily);
+    }
+  }
+
   const actualValues = actualBacklog.filter(v => v !== null);
   const peakBacklog = actualValues.length > 0 ? Math.max(...actualValues) : 0;
   const endBacklog = actualValues.length > 0 ? actualValues[actualValues.length-1] : 0;
@@ -680,7 +735,8 @@ function buildBacklogChart(){
     ${backlogMetrics.entered?`<span style="color:#2563EB">● New Entered: <b>${fmt(totalEntered)}</b></span> &nbsp;·&nbsp;`:''}
     ${backlogMetrics.completed?`<span style="color:#059669">● Completed: <b>${fmt(totalCompleted)}</b></span> &nbsp;·&nbsp;`:''}
     ${backlogMetrics.backlog && actualValues.length>0?`<span style="color:#DC2626">● Peak Backlog: <b>${fmt(peakBacklog)}</b></span> &nbsp;·&nbsp;<span style="color:#DC2626">● End Backlog: <b>${fmt(endBacklog)}</b></span> &nbsp;·&nbsp;`:''}
-    <span style="color:var(--muted)">● Data points: <b>${actualValues.length}</b></span>
+    ${backlogMetrics.capacity && capacityLine.some(v=>v!==null)?`<span style="color:#D97706">● ${backlogBuffer?'Buffered':'Raw'} Capacity: <b>${fmt(capacityLine.find(v=>v!==null)||0)}/hr</b></span> &nbsp;·&nbsp;`:''}
+    <span style="color:var(--muted)">● Actual data points: <b>${actualValues.length}</b></span>
   `;
 
   const datasets = [];
@@ -722,6 +778,21 @@ function buildBacklogChart(){
         color:'#059669', font:{size:9,weight:'700'},
         formatter: v => v>0 ? fmt(v) : ''
       }
+    });
+  }
+
+  if(backlogMetrics.capacity && capacityLine.some(v=>v!==null)){
+    datasets.push({
+      type: 'line',
+      label: 'Capacity',
+      data: capacityLine,
+      borderColor: '#D97706',
+      backgroundColor: 'transparent',
+      borderWidth: 2, borderDash: [4,4], tension: 0,
+      pointRadius: 0,
+      yAxisID: 'y',
+      spanGaps: true,
+      datalabels: { display: false }
     });
   }
 
@@ -1140,11 +1211,11 @@ function render(){
     </div>
 
     <!-- BACKLOG CHART -->
-    <div class="sec-label">QC Backlog Trend</div>
+    <div class="sec-label">Image Throughput</div>
     <div class="chart-card" style="margin-bottom:4px;">
       <div class="chart-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <div>
-          <div class="chart-title">QC Backlog</div>
+          <div class="chart-title">Image Throughput</div>
           <div class="chart-sub" id="backlogSub">Today · Hour by Hour</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -1166,6 +1237,9 @@ function render(){
           <button class="metric-btn active chip" data-metric="entered" onclick="toggleBacklogMetric('entered')" style="background:rgba(37,99,235,0.15);color:#2563EB;">● New Entered</button>
           <button class="metric-btn active chip" data-metric="completed" onclick="toggleBacklogMetric('completed')" style="background:rgba(5,150,105,0.15);color:#059669;">● Completed</button>
           <button class="metric-btn active chip" data-metric="backlog" onclick="toggleBacklogMetric('backlog')" style="background:rgba(220,38,38,0.15);color:#DC2626;">● Actual Backlog</button>
+          <button class="metric-btn active chip" data-metric="capacity" onclick="toggleBacklogMetric('capacity')" style="background:rgba(245,158,11,0.15);color:#D97706;">● Capacity</button>
+          <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
+          <button id="backlogBufferBtn" onclick="toggleBacklogBuffer()" style="background:rgba(107,47,217,0.15);color:var(--purple);border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">10% Buffer ON</button>
         </div>
       </div>
       <div class="chart-wrap" style="height:300px;margin-top:16px;"><canvas id="cBacklog"></canvas></div>
