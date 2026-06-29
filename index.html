@@ -1205,6 +1205,7 @@ function render(){
       <div class="kpi-card kb"><div class="kpi-icon">🏢</div><div class="kpi-label">Active Enterprises</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Enterprises'])}</div><div class="kpi-sub">unique clients</div></div>
       <div class="kpi-card kb"><div class="kpi-icon">📍</div><div class="kpi-label">Active Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Rooftops'])}</div><div class="kpi-sub">unique team IDs</div></div>
       <div class="kpi-card kp"><div class="kpi-icon">💰</div><div class="kpi-label">Contracted ARR</div><div class="kpi-val">${fmtARR(agg.Total_Contracted_ARR)}</div><div class="kpi-sub">total contracted value</div></div>
+      <div class="kpi-card kb"><div class="kpi-icon">1️⃣</div><div class="kpi-label">V1 Account %</div><div class="kpi-val" style="color:var(--purple)">${(()=>{const total=clean(agg['Total Active Enterprises']);const v1=clean(agg['V1 Enterprises']);return total>0?Math.round(v1/total*1000)/10+'%':'—';})()}</div><div class="kpi-sub">${fmt(agg['V1 Enterprises'])} of ${fmt(agg['Total Active Enterprises'])} enterprises</div></div>
     </div>
 
     <!-- KPI ROW 2 -->
