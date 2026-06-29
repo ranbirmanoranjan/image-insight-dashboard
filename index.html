@@ -839,7 +839,7 @@ function buildBacklogChart(){
       borderWidth: 2, tension: 0.4,
       fill: true,
       pointRadius: 4, pointBackgroundColor: '#DC2626',
-      yAxisID: 'y2',
+      yAxisID: 'y',
       spanGaps: true,
       datalabels: {
         display: ctx => dataLabelsOn && ctx.dataset.data[ctx.dataIndex] !== null && ctx.dataset.data[ctx.dataIndex] > 0,
@@ -849,8 +849,6 @@ function buildBacklogChart(){
       }
     });
   }
-
-  const hasBacklog = backlogMetrics.backlog && actualValues.length > 0;
 
   backlogChart = new Chart(canvas, {
     data: { labels, datasets },
@@ -863,13 +861,7 @@ function buildBacklogChart(){
       },
       scales: {
         x: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'} },
-        y: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'}, beginAtZero:true },
-        y2: {
-          display: hasBacklog,
-          position:'right',
-          ticks:{color:'#DC2626',font:{family:'Plus Jakarta Sans',size:10}},
-          grid:{display:false}
-        }
+        y: { ticks:{color:'#7B7A9A',font:{family:'Plus Jakarta Sans',size:10}}, grid:{color:'#F0EDF8'}, beginAtZero:true }
       }
     }
   });
