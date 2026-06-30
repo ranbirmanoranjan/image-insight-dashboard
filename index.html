@@ -160,6 +160,7 @@ function backlogYesterdayURL(){ return `${GAS}?report=backlog_yesterday`; }
 function backlogDailyURL(days){ return `${GAS}?report=backlog_daily&days=${days}`; }
 function backlogHistoryURL(days){ return `${GAS}?report=backlog_history&days=${days}`; }
 function rosterURL(){ return `${GAS}?report=roster`; }
+function rosterHistoryURL(days){ return `${GAS}?report=roster_history&days=${days}`; }
 
 // Embedded fallback data
 const FALLBACK = {
@@ -422,6 +423,7 @@ function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy());charts={
 
 // Roster state
 let rosterData = null;
+let rosterHistory = {}; // { 'YYYY-MM-DD': [{name,timing,count}, ...] } — snapshot per date
 let rosterBuffer = true; // 10% buffer toggle
 const IMAGES_PER_PERSON_DAY = 4800;
 
@@ -435,6 +437,14 @@ async function loadRoster(){
       console.error('Roster error:', data.error);
     }
   } catch(e){ console.error('Roster fetch failed:', e); }
+  // Load historical roster snapshots (preserves capacity across roster changes)
+  try {
+    const hist = await fetchJSON(rosterHistoryURL(45));
+    rosterHistory = {};
+    if(Array.isArray(hist)){
+      hist.forEach(row => { if(row && row.date) rosterHistory[row.date] = row.shifts || []; });
+    }
+  } catch(e){ console.error('Roster history fetch failed:', e); }
   buildRoster();
 }
 
@@ -686,6 +696,7 @@ function buildBacklogChart(){
     return '';
   };
 
+  let hourlyDate = '';
   if(isHourly){
     const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
     let targetDate;
@@ -695,6 +706,7 @@ function buildBacklogChart(){
       const yest = new Date(nowIST); yest.setDate(yest.getDate()-1);
       targetDate = yest.getFullYear()+'-'+String(yest.getMonth()+1).padStart(2,'0')+'-'+String(yest.getDate()).padStart(2,'0');
     }
+    hourlyDate = targetDate;
     history.forEach(h => {
       const hDate = extractDate(h);
       if(hDate === targetDate){
@@ -713,46 +725,58 @@ function buildBacklogChart(){
     actualBacklog = labels.map(l => dateMap[l] !== undefined ? dateMap[l].backlog : null);
   }
 
-  // Calculate hourly capacity from roster
+  // Calculate capacity from roster — uses the roster SNAPSHOT that was in
+  // effect on each date (rosterHistory), falling back to the current roster
+  // when no snapshot exists. This keeps historical capacity correct even after
+  // the roster is changed.
   let capacityLine = new Array(labels.length).fill(null);
   if(rosterData && rosterData.shifts && backlogMetrics.capacity){
     const bufferFactor = backlogBuffer ? 0.9 : 1.0;
     const parseTime = (t) => {
-      const m = t.trim().match(/(\d+):(\d+)(AM|PM)/i);
+      const m = (t||'').trim().match(/(\d+):(\d+)(AM|PM)/i);
       if(!m) return -1;
       let h = parseInt(m[1]);
       if(m[3].toUpperCase()==='PM' && h!==12) h+=12;
       if(m[3].toUpperCase()==='AM' && h===12) h=0;
       return h;
     };
-    const shifts = rosterData.shifts.map(s => {
-      const parts = s.timing.split(' to ');
+    // Normalize current roster to the same {timing, count} shape as snapshots
+    const currentShifts = rosterData.shifts.map(s => ({timing: s.timing, count: s.employees.length}));
+    // Resolve which shift list applies to a given date string (snapshot or fallback)
+    const shiftsForDate = (dateStr) => {
+      const snap = dateStr && rosterHistory[dateStr];
+      if(snap && snap.length) return snap.map(s => ({timing: s.timing, count: (s.count != null ? s.count : (s.employees ? s.employees.length : 0))}));
+      return currentShifts;
+    };
+    // Build per-shift hourly/daily capacity for a shift list
+    const calcShifts = (list) => list.map(s => {
+      const parts = (s.timing||'').split(' to ');
       const start = parts.length>1 ? parseTime(parts[0]) : -1;
       const endRaw = parts.length>1 ? parseTime(parts[1]) : -1;
-      const hours = s.timing ? (() => {
-        let e = endRaw; const st = start;
-        if(e < st) e += 24;
-        return Math.round(e - st);
-      })() : 9;
-      const dailyCap = Math.round(s.employees.length * 4800 * bufferFactor);
-      return { start, endRaw, hours, hourly: Math.round(dailyCap / hours) };
+      const hours = s.timing ? (() => { let e = endRaw; const st = start; if(e < st) e += 24; return Math.round(e - st); })() : 9;
+      const dailyCap = Math.round((s.count||0) * 4800 * bufferFactor);
+      return { start, endRaw, hours, dailyCap, hourly: hours>0 ? Math.round(dailyCap / hours) : 0 };
+    });
+    const hourlyArray = (calc) => Array.from({length:24}, (_,h) => {
+      let total = 0;
+      calc.forEach(s => {
+        if(s.start < 0) return;
+        const end = s.endRaw < s.start ? s.endRaw + 24 : s.endRaw;
+        const hAdj = h < s.start ? h + 24 : h;
+        if(hAdj >= s.start && hAdj < end) total += s.hourly;
+      });
+      return total > 0 ? total : null;
     });
 
     if(isHourly){
-      capacityLine = Array.from({length:24}, (_,h) => {
-        let total = 0;
-        shifts.forEach(s => {
-          if(s.start < 0) return;
-          const end = s.endRaw < s.start ? s.endRaw + 24 : s.endRaw;
-          const hAdj = h < s.start ? h + 24 : h;
-          if(hAdj >= s.start && hAdj < end) total += s.hourly;
-        });
+      // Hourly view (Today/Yesterday): per-hour capacity for that single date
+      capacityLine = hourlyArray(calcShifts(shiftsForDate(hourlyDate)));
+    } else {
+      // Daily view: each label is a date → that date's total daily capacity
+      capacityLine = labels.map(dateStr => {
+        const total = calcShifts(shiftsForDate(dateStr)).reduce((a,s) => a + s.dailyCap, 0);
         return total > 0 ? total : null;
       });
-    } else {
-      // For daily view show total daily capacity
-      const totalDaily = shifts.reduce((a,s) => a + Math.round(s.employees.length * 4800 * bufferFactor), 0);
-      capacityLine = labels.map(() => totalDaily);
     }
   }
 
