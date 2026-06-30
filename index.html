@@ -495,12 +495,14 @@ function buildRoster(){
     const hourlyCapacity = Math.round(capacity / hours);
     totalCapacity += capacity;
 
-    const colors = ['#2563EB','#059669','#7C3AED'];
-    const bgs = ['rgba(37,99,235,0.08)','rgba(5,150,105,0.08)','rgba(124,58,237,0.08)'];
+    const palette = ['#2563EB','#059669','#7C3AED','#DC2626','#D97706','#0891B2','#DB2777'];
+    const bgPalette = ['rgba(37,99,235,0.08)','rgba(5,150,105,0.08)','rgba(124,58,237,0.08)','rgba(220,38,38,0.08)','rgba(217,119,6,0.08)','rgba(8,145,178,0.08)','rgba(219,39,119,0.08)'];
+    const c = palette[i%palette.length];
+    const bg = bgPalette[i%bgPalette.length];
 
     return `
-      <div style="flex:1;min-width:200px;background:${bgs[i]};border-radius:12px;padding:16px;border:1px solid ${colors[i]}22;">
-        <div style="font-weight:700;color:${colors[i]};font-size:13px;margin-bottom:4px;">${shift.name}</div>
+      <div style="flex:1;min-width:200px;background:${bg};border-radius:12px;padding:16px;border:1px solid ${c}22;">
+        <div style="font-weight:700;color:${c};font-size:13px;margin-bottom:4px;">${shift.name}</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">⏰ ${shift.timing}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <span style="font-size:11px;color:var(--muted);">👥 Employees</span>
@@ -508,13 +510,13 @@ function buildRoster(){
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <span style="font-size:11px;color:var(--muted);">📸 Daily Capacity</span>
-          <span style="font-weight:700;color:${colors[i]};">${fmt(capacity)}</span>
+          <span style="font-weight:700;color:${c};">${fmt(capacity)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <span style="font-size:11px;color:var(--muted);">⚡ Per Hour</span>
-          <span style="font-weight:700;color:${colors[i]};">${fmt(hourlyCapacity)}</span>
+          <span style="font-weight:700;color:${c};">${fmt(hourlyCapacity)}</span>
         </div>
-        ${rosterBuffer ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid ${colors[i]}22;">Raw: ${fmt(rawCapacity)} · Buffer: -${fmt(rawCapacity-capacity)}</div>` : ''}
+        ${rosterBuffer ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid ${c}22;">Raw: ${fmt(rawCapacity)} · Buffer: -${fmt(rawCapacity-capacity)}</div>` : ''}
         <div style="margin-top:10px;max-height:120px;overflow-y:auto;">
           ${shift.employees.map(e => `<div style="font-size:11px;color:var(--text);padding:2px 0;border-bottom:1px solid var(--border);">👤 ${e}</div>`).join('')}
         </div>
