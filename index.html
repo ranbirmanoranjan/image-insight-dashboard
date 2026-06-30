@@ -442,7 +442,7 @@ async function loadRoster(){
     const hist = await fetchJSON(rosterHistoryURL(45));
     rosterHistory = {};
     if(Array.isArray(hist)){
-      hist.forEach(row => { if(row && row.date) rosterHistory[row.date] = row.shifts || []; });
+      hist.forEach(row => { if(row && row.date) rosterHistory[row.date] = { shifts: row.shifts || [], perUser: row.perUserCapacity || 4800 }; });
     }
   } catch(e){ console.error('Roster history fetch failed:', e); }
   buildRoster();
@@ -497,10 +497,13 @@ function buildRoster(){
   };
 
   let totalCapacity = 0;
+  const perUserDaily = rosterData.perUserCapacity || IMAGES_PER_PERSON_DAY;
+  const ppLabel = document.getElementById('perPersonLabel');
+  if(ppLabel) ppLabel.textContent = fmt(perUserDaily) + ' images/person/day';
   const shiftCards = shifts.map((shift, i) => {
     const count = shift.employees.length;
     const hours = parseHours(shift.timing);
-    const rawCapacity = count * IMAGES_PER_PERSON_DAY;
+    const rawCapacity = count * perUserDaily;
     const capacity = Math.round(rawCapacity * bufferFactor);
     const hourlyCapacity = Math.round(capacity / hours);
     totalCapacity += capacity;
@@ -740,21 +743,27 @@ function buildBacklogChart(){
       if(m[3].toUpperCase()==='AM' && h===12) h=0;
       return h;
     };
-    // Normalize current roster to the same {timing, count} shape as snapshots
+    // Normalize current roster to {timing, count} + current per-user capacity
     const currentShifts = rosterData.shifts.map(s => ({timing: s.timing, count: s.employees.length}));
-    // Resolve which shift list applies to a given date string (snapshot or fallback)
-    const shiftsForDate = (dateStr) => {
+    const currentPerUser = rosterData.perUserCapacity || 4800;
+    // Resolve roster + per-user-capacity that applied on a given date (snapshot or fallback)
+    const dataForDate = (dateStr) => {
       const snap = dateStr && rosterHistory[dateStr];
-      if(snap && snap.length) return snap.map(s => ({timing: s.timing, count: (s.count != null ? s.count : (s.employees ? s.employees.length : 0))}));
-      return currentShifts;
+      if(snap && snap.shifts && snap.shifts.length){
+        return {
+          shifts: snap.shifts.map(s => ({timing: s.timing, count: (s.count != null ? s.count : (s.employees ? s.employees.length : 0))})),
+          perUser: snap.perUser || currentPerUser
+        };
+      }
+      return { shifts: currentShifts, perUser: currentPerUser };
     };
-    // Build per-shift hourly/daily capacity for a shift list
-    const calcShifts = (list) => list.map(s => {
+    // Build per-shift hourly/daily capacity for a shift list at a given per-user rate
+    const calcShifts = (list, perUser) => list.map(s => {
       const parts = (s.timing||'').split(' to ');
       const start = parts.length>1 ? parseTime(parts[0]) : -1;
       const endRaw = parts.length>1 ? parseTime(parts[1]) : -1;
       const hours = s.timing ? (() => { let e = endRaw; const st = start; if(e < st) e += 24; return Math.round(e - st); })() : 9;
-      const dailyCap = Math.round((s.count||0) * 4800 * bufferFactor);
+      const dailyCap = Math.round((s.count||0) * (perUser||4800) * bufferFactor);
       return { start, endRaw, hours, dailyCap, hourly: hours>0 ? Math.round(dailyCap / hours) : 0 };
     });
     const hourlyArray = (calc) => Array.from({length:24}, (_,h) => {
@@ -770,11 +779,13 @@ function buildBacklogChart(){
 
     if(isHourly){
       // Hourly view (Today/Yesterday): per-hour capacity for that single date
-      capacityLine = hourlyArray(calcShifts(shiftsForDate(hourlyDate)));
+      const dd = dataForDate(hourlyDate);
+      capacityLine = hourlyArray(calcShifts(dd.shifts, dd.perUser));
     } else {
       // Daily view: each label is a date → that date's total daily capacity
       capacityLine = labels.map(dateStr => {
-        const total = calcShifts(shiftsForDate(dateStr)).reduce((a,s) => a + s.dailyCap, 0);
+        const dd = dataForDate(dateStr);
+        const total = calcShifts(dd.shifts, dd.perUser).reduce((a,s) => a + s.dailyCap, 0);
         return total > 0 ? total : null;
       });
     }
@@ -1259,7 +1270,7 @@ function render(){
           <div class="chart-sub" id="rosterDateRange">Loading roster...</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
-          <span style="font-size:11px;color:var(--muted);">4,800 images/person/day</span>
+          <span id="perPersonLabel" style="font-size:11px;color:var(--muted);">4,800 images/person/day</span>
           <button id="bufferBtn" onclick="toggleBuffer()" style="background:rgba(107,47,217,0.15);color:var(--purple);border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">10% Buffer ON</button>
         </div>
       </div>
