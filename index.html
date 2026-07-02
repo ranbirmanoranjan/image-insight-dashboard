@@ -158,6 +158,7 @@ const URLS = {
 function backlogTodayURL(){ return `${GAS}?report=backlog_today`; }
 function backlogYesterdayURL(){ return `${GAS}?report=backlog_yesterday`; }
 function backlogDailyURL(days){ return `${GAS}?report=backlog_daily&days=${days}`; }
+function backlogHourlyAvgURL(days){ return `${GAS}?report=backlog_hourly_avg&days=${days}`; }
 function backlogHistoryURL(days){ return `${GAS}?report=backlog_history&days=${days}`; }
 function rosterURL(){ return `${GAS}?report=roster`; }
 function rosterHistoryURL(days){ return `${GAS}?report=roster_history&days=${days}`; }
@@ -561,6 +562,7 @@ function buildRoster(){
 
 // Backlog chart state
 let backlogPeriod = 0;
+let backlogHourlyMode = false; // multi-day ranges: false=date-wise, true=hourly average
 let backlogChartType = 'line';
 let backlogMetrics = {entered: true, completed: true, backlog: true, capacity: true};
 let backlogBuffer = true; // 10% buffer for capacity line
@@ -610,6 +612,10 @@ async function loadBacklog(days){
   document.querySelectorAll('.backlog-btn').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.days) === days);
   });
+  // The Hourly/Date-wise granularity toggle only applies to multi-day ranges
+  const granWrap = document.getElementById('backlogGranToggle');
+  if(granWrap) granWrap.style.display = (days > 1) ? '' : 'none';
+  updateBacklogGranButtons();
 
   try {
     if(days === 0){
@@ -639,16 +645,39 @@ async function loadBacklog(days){
         : 0;
       backlogData = {type:'hourly', data: yesterdayData||[], opening: openingBacklog, history: historyData||[]};
     } else {
-      // Date-wise: fetch flow data + GSheet history
-      const [flowData, historyData] = await Promise.all([
-        fetchJSON(backlogDailyURL(days)),
-        fetchJSON(backlogHistoryURL(days))
-      ]);
-      backlogData = {type:'daily', data: flowData||[], opening: 0, history: historyData||[]};
+      if(backlogHourlyMode){
+        // Multi-day HOURLY AVERAGE: hour-of-day averages from the new query,
+        // plus GSheet history (for hour-of-day backlog average) over the range.
+        const [avgData, historyData] = await Promise.all([
+          fetchJSON(backlogHourlyAvgURL(days)),
+          fetchJSON(backlogHistoryURL(days))
+        ]);
+        backlogData = {type:'hourly-avg', data: avgData||[], opening: 0, history: historyData||[]};
+      } else {
+        // Date-wise: fetch flow data + GSheet history
+        const [flowData, historyData] = await Promise.all([
+          fetchJSON(backlogDailyURL(days)),
+          fetchJSON(backlogHistoryURL(days))
+        ]);
+        backlogData = {type:'daily', data: flowData||[], opening: 0, history: historyData||[]};
+      }
     }
   } catch(e){ console.warn('Backlog fetch failed', e); }
 
   buildBacklogChart();
+}
+
+// Toggle between hourly-average and date-wise for multi-day ranges
+function setBacklogGranularity(hourly){
+  backlogHourlyMode = hourly;
+  updateBacklogGranButtons();
+  if(backlogPeriod > 1) loadBacklog(backlogPeriod);
+}
+function updateBacklogGranButtons(){
+  const h = document.getElementById('granHourly');
+  const d = document.getElementById('granDaily');
+  if(h) h.classList.toggle('active', backlogHourlyMode);
+  if(d) d.classList.toggle('active', !backlogHourlyMode);
 }
 
 function buildBacklogChart(){
@@ -656,7 +685,8 @@ function buildBacklogChart(){
   const canvas = document.getElementById('cBacklog');
   if(!canvas || !backlogData || !backlogData.data || !backlogData.data.length) return;
 
-  const isHourly = backlogData.type === 'hourly';
+  const isHourlyAvg = backlogData.type === 'hourly-avg';
+  const isHourly = backlogData.type === 'hourly' || isHourlyAvg;
   const opening = backlogData.opening || 0;
   const rawData = backlogData.data;
   const history = backlogData.history || [];
@@ -664,8 +694,10 @@ function buildBacklogChart(){
   // Update subtitle
   const sub = document.getElementById('backlogSub');
   if(sub){
-    const periods = {0:'Today · Hour by Hour',1:'Yesterday · Hour by Hour',7:'Last 7 Days · Daily',15:'Last 15 Days · Daily',30:'Last 30 Days · Daily',45:'Last 45 Days · Daily'};
-    sub.textContent = periods[backlogPeriod]||'';
+    const dayName = {7:'Last 7 Days',15:'Last 15 Days',30:'Last 30 Days',45:'Last 45 Days'};
+    if(backlogPeriod === 0) sub.textContent = 'Today · Hour by Hour';
+    else if(backlogPeriod === 1) sub.textContent = 'Yesterday · Hour by Hour';
+    else sub.textContent = (dayName[backlogPeriod]||'') + (isHourlyAvg ? ' · Hourly (avg/day)' : ' · Daily');
   }
 
   let labels, entered, completed;
@@ -700,7 +732,25 @@ function buildBacklogChart(){
   };
 
   let hourlyDate = '';
-  if(isHourly){
+  if(isHourlyAvg){
+    // Average backlog_count by hour-of-day across every date in the range
+    const sums = new Array(24).fill(0), cnts = new Array(24).fill(0);
+    // For each date, take the last reading per hour, then average across dates
+    const perDateHour = {}; // { date: { hour: backlog } }
+    history.forEach(h => {
+      const hDate = extractDate(h);
+      const hr = parseInt(h.hour);
+      if(!hDate || isNaN(hr) || hr < 0 || hr > 23) return;
+      perDateHour[hDate] = perDateHour[hDate] || {};
+      perDateHour[hDate][hr] = clean(h.backlog_count); // last write per (date,hour) wins
+    });
+    Object.values(perDateHour).forEach(hourObj => {
+      for(let hr=0; hr<24; hr++){
+        if(hourObj[hr] !== undefined){ sums[hr] += hourObj[hr]; cnts[hr]++; }
+      }
+    });
+    actualBacklog = Array.from({length:24}, (_,hr) => cnts[hr] > 0 ? Math.round(sums[hr]/cnts[hr]) : null);
+  } else if(isHourly){
     const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
     let targetDate;
     if(backlogPeriod === 0){
@@ -777,7 +827,21 @@ function buildBacklogChart(){
       return total > 0 ? total : null;
     });
 
-    if(isHourly){
+    if(isHourlyAvg){
+      // Average per-hour capacity across each date in the range (using per-date roster snapshots)
+      const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+      const sums = new Array(24).fill(0);
+      let dayCount = 0;
+      for(let i=0; i<backlogPeriod; i++){
+        const dt = new Date(nowIST); dt.setDate(dt.getDate()-i);
+        const dStr = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+        const dd = dataForDate(dStr);
+        const arr = hourlyArray(calcShifts(dd.shifts, dd.perUser));
+        for(let h=0; h<24; h++) sums[h] += (arr[h] || 0);
+        dayCount++;
+      }
+      capacityLine = sums.map(v => dayCount > 0 && v > 0 ? Math.round(v/dayCount) : null);
+    } else if(isHourly){
       // Hourly view (Today/Yesterday): per-hour capacity for that single date
       const dd = dataForDate(hourlyDate);
       capacityLine = hourlyArray(calcShifts(dd.shifts, dd.perUser));
@@ -1295,6 +1359,12 @@ function render(){
           <button class="backlog-btn chip" data-days="15" onclick="loadBacklog(15)">Last 15 Days</button>
           <button class="backlog-btn chip" data-days="30" onclick="loadBacklog(30)">Last 30 Days</button>
           <button class="backlog-btn chip" data-days="45" onclick="loadBacklog(45)">Last 45 Days</button>
+          <!-- Granularity toggle (multi-day ranges only) -->
+          <span id="backlogGranToggle" style="display:none;">
+            <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
+            <button id="granDaily" class="chart-type-btn chip active" onclick="setBacklogGranularity(false)">📅 Date-wise</button>
+            <button id="granHourly" class="chart-type-btn chip" onclick="setBacklogGranularity(true)">⏱ Hourly avg</button>
+          </span>
           <!-- Divider -->
           <span style="color:var(--border);font-size:18px;margin:0 2px;">|</span>
           <!-- Chart type -->
