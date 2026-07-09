@@ -307,6 +307,8 @@ const KPI_TRENDS = {
   newroof: {label:'New Rooftops',      color:'#2563EB', calc:a=>clean(a.New_Rooftops_Added),          fmt:v=>fmt(v)}
 };
 let kpiTrendChart = null;
+let kpiTrendType = 'bar'; // 'bar' | 'line'
+let kpiTrendKey = null;
 
 function ensureKpiModal(){
   if(document.getElementById('kpiTrendBackdrop')) return;
@@ -317,15 +319,29 @@ function ensureKpiModal(){
     <button class="kpi-modal-close" onclick="closeKpiTrend()">×</button>
     <h3 id="kpiTrendTitle"></h3>
     <div class="kpi-modal-sub" id="kpiTrendSub"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button id="kpiTrendCurveBtn" class="chip chart-type-btn" onclick="setKpiTrendType('line')">〰 Curve</button>
+      <button id="kpiTrendBarBtn" class="chip chart-type-btn active" onclick="setKpiTrendType('bar')">▮ Bar</button>
+    </div>
     <div style="height:260px;"><canvas id="kpiTrendCanvas"></canvas></div>
   </div>`;
   el.addEventListener('click', e => { if(e.target === el) closeKpiTrend(); });
   document.body.appendChild(el);
 }
 
+function setKpiTrendType(t){
+  kpiTrendType = t;
+  const c = document.getElementById('kpiTrendCurveBtn');
+  const b = document.getElementById('kpiTrendBarBtn');
+  if(c) c.classList.toggle('active', t === 'line');
+  if(b) b.classList.toggle('active', t === 'bar');
+  if(kpiTrendKey) showKpiTrend(kpiTrendKey);
+}
+
 function showKpiTrend(key){
   const def = KPI_TRENDS[key];
   if(!def || !allData.main || !allData.main.length) return;
+  kpiTrendKey = key;
   ensureKpiModal();
 
   // Unique months sorted chronologically → last 4 (3 complete + current MTD)
@@ -351,15 +367,17 @@ function showKpiTrend(key){
   document.getElementById('kpiTrendBackdrop').classList.add('open');
 
   if(kpiTrendChart) kpiTrendChart.destroy();
+  const isLine = kpiTrendType === 'line';
   kpiTrendChart = new Chart(document.getElementById('kpiTrendCanvas'), {
-    type: 'bar',
+    type: isLine ? 'line' : 'bar',
     data: { labels, datasets: [{
       data: values,
-      backgroundColor: def.color + '33',
+      backgroundColor: isLine ? def.color + '1A' : def.color + '33',
       borderColor: def.color,
       borderWidth: 2,
-      borderRadius: 8,
-      maxBarThickness: 70
+      ...(isLine
+        ? { fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: def.color }
+        : { borderRadius: 8, maxBarThickness: 70 })
     }]},
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -380,6 +398,7 @@ function closeKpiTrend(){
   const b = document.getElementById('kpiTrendBackdrop');
   if(b) b.classList.remove('open');
   if(kpiTrendChart){ kpiTrendChart.destroy(); kpiTrendChart = null; }
+  kpiTrendKey = null;
 }
 // ============ END KPI TREND MODAL ============
 const pct=v=>String(v).replace(' %','')+'%';
