@@ -70,6 +70,15 @@ body{background:var(--bg);color:var(--text);font-family:"Plus Jakarta Sans",sans
 .kpi-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);}
 .kpi-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
 .kpi-card.kp{--c:var(--purple);} .kpi-card.kg{--c:var(--green);} .kpi-card.ka{--c:var(--amber);} .kpi-card.kr{--c:var(--red);} .kpi-card.kb{--c:var(--blue);}
+.kpi-card{cursor:pointer;}
+/* KPI trend modal */
+.kpi-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:1000;display:none;align-items:center;justify-content:center;}
+.kpi-modal-backdrop.open{display:flex;}
+.kpi-modal{background:var(--white);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);width:min(560px,92vw);padding:20px 22px;position:relative;}
+.kpi-modal h3{margin:0 0 2px;font-size:16px;}
+.kpi-modal .kpi-modal-sub{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.kpi-modal-close{position:absolute;top:12px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;}
+.kpi-modal-close:hover{color:var(--text);}
 .kpi-card::before{background:var(--c);}
 .kpi-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;background:color-mix(in srgb, var(--c) 12%, white);}
 .kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;}
@@ -281,6 +290,98 @@ function thSort(label, key, data, renderFn){
 const clean=v=>parseFloat(String(v||0).replace(/,/g,'').replace(/%/g,'').trim())||0;
 const fmt=v=>{const n=clean(v);if(!n&&!v)return'—';return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'K':String(n);};
 const fmtARR=v=>{const n=clean(v);return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1000?'$'+(n/1000).toFixed(0)+'K':'$'+n.toFixed(0);};
+
+// ============ KPI TREND MODAL (click a KPI card → monthly trend) ============
+const KPI_TRENDS = {
+  images:  {label:'Total Images',      color:'#7C3AED', calc:a=>clean(a.Total_Images),                fmt:v=>fmt(v)},
+  skus:    {label:'Total SKUs',        color:'#7C3AED', calc:a=>clean(a.Total_SKUs),                  fmt:v=>fmt(v)},
+  ent:     {label:'Active Enterprises',color:'#2563EB', calc:a=>clean(a['Total Active Enterprises']), fmt:v=>fmt(v)},
+  roof:    {label:'Active Rooftops',   color:'#2563EB', calc:a=>clean(a['Total Active Rooftops']),    fmt:v=>fmt(v)},
+  arr:     {label:'Contracted ARR',    color:'#7C3AED', calc:a=>clean(a.Total_Contracted_ARR),        fmt:v=>fmtARR(v)},
+  v1pct:   {label:'V1 Account %',      color:'#7C3AED', calc:a=>{const t=clean(a['Total Active Enterprises']);const v=clean(a['V1 Enterprises']);return t>0?Math.round(v/t*1000)/10:0;}, fmt:v=>v+'%'},
+  imgtat:  {label:'Image TAT',         color:'#D97706', calc:a=>clean(a.Avg_Image_TAT_Hours),         fmt:v=>Number(v).toFixed(2)+'h'},
+  skutat:  {label:'SKU TAT',           color:'#D97706', calc:a=>clean(a.Avg_SKU_TAT_Hours),           fmt:v=>Number(v).toFixed(2)+'h'},
+  trueacc: {label:'True Accuracy',     color:'#059669', calc:a=>clean(a.true_accuracy),               fmt:v=>Number(v).toFixed(2)+'%'},
+  postacc: {label:'Post QC Accuracy',  color:'#059669', calc:a=>clean(a.post_qc_tool_accuracy),       fmt:v=>Number(v).toFixed(2)+'%'},
+  newent:  {label:'New Enterprises',   color:'#7C3AED', calc:a=>clean(a.New_Enterprises_Added),       fmt:v=>fmt(v)},
+  newroof: {label:'New Rooftops',      color:'#2563EB', calc:a=>clean(a.New_Rooftops_Added),          fmt:v=>fmt(v)}
+};
+let kpiTrendChart = null;
+
+function ensureKpiModal(){
+  if(document.getElementById('kpiTrendBackdrop')) return;
+  const el = document.createElement('div');
+  el.id = 'kpiTrendBackdrop';
+  el.className = 'kpi-modal-backdrop';
+  el.innerHTML = `<div class="kpi-modal">
+    <button class="kpi-modal-close" onclick="closeKpiTrend()">×</button>
+    <h3 id="kpiTrendTitle"></h3>
+    <div class="kpi-modal-sub" id="kpiTrendSub"></div>
+    <div style="height:260px;"><canvas id="kpiTrendCanvas"></canvas></div>
+  </div>`;
+  el.addEventListener('click', e => { if(e.target === el) closeKpiTrend(); });
+  document.body.appendChild(el);
+}
+
+function showKpiTrend(key){
+  const def = KPI_TRENDS[key];
+  if(!def || !allData.main || !allData.main.length) return;
+  ensureKpiModal();
+
+  // Unique months sorted chronologically → last 4 (3 complete + current MTD)
+  const monthsRaw = [...new Set(allData.main.map(d=>d.Month))]
+    .map(m => ({raw:m, d:new Date(m)}))
+    .filter(m => !isNaN(m.d))
+    .sort((a,b) => a.d - b.d)
+    .slice(-4);
+
+  const labels = [], values = [];
+  monthsRaw.forEach(m => {
+    const rows = allData.main.filter(d => d.Month === m.raw && (activeSeg==='All' || d.customer_segment === activeSeg));
+    if(!rows.length) return;
+    const agg = aggregated(rows);
+    const isMTD = rows[0].Month_Type === 'MTD';
+    labels.push(m.d.toLocaleString('en-US',{month:'short'}) + ' ' + m.d.getFullYear() + (isMTD ? ' (MTD)' : ''));
+    values.push(def.calc(agg));
+  });
+  if(!values.length) return;
+
+  document.getElementById('kpiTrendTitle').textContent = def.label + ' · Monthly Trend';
+  document.getElementById('kpiTrendSub').textContent = 'Segment: ' + activeSeg + ' · last ' + (labels.length-1) + ' months + current';
+  document.getElementById('kpiTrendBackdrop').classList.add('open');
+
+  if(kpiTrendChart) kpiTrendChart.destroy();
+  kpiTrendChart = new Chart(document.getElementById('kpiTrendCanvas'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      data: values,
+      backgroundColor: def.color + '33',
+      borderColor: def.color,
+      borderWidth: 2,
+      borderRadius: 8,
+      maxBarThickness: 70
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display:false},
+        tooltip: {callbacks: {label: ctx => def.fmt(ctx.raw)}},
+        datalabels: {anchor:'end', align:'top', font:{weight:'bold', size:12}, color: def.color, formatter: v => def.fmt(v)}
+      },
+      scales: {
+        y: {beginAtZero:true, grace:'15%', ticks:{callback:v=>fmt(v)}},
+        x: {grid:{display:false}}
+      }
+    }
+  });
+}
+
+function closeKpiTrend(){
+  const b = document.getElementById('kpiTrendBackdrop');
+  if(b) b.classList.remove('open');
+  if(kpiTrendChart){ kpiTrendChart.destroy(); kpiTrendChart = null; }
+}
+// ============ END KPI TREND MODAL ============
 const pct=v=>String(v).replace(' %','')+'%';
 const badge=v=>{const n=clean(v);const c=n>=90?'bg-g':n>=80?'bg-a':'bg-r';return`<span class="badge ${c}">${pct(v)}</span>`;};
 const segChip=s=>`<span class="seg-chip seg-${s}">${s}</span>`;
@@ -1306,23 +1407,23 @@ function render(){
     <!-- KPI ROW 1: Volume & Capacity -->
     <div class="sec-label">Volume & Capacity</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);">
-      <div class="kpi-card kp"><div class="kpi-icon">🖼️</div><div class="kpi-label">Total Images</div><div class="kpi-val">${fmt(agg.Total_Images)}</div><div class="kpi-sub">verified & QC done</div></div>
-      <div class="kpi-card kp"><div class="kpi-icon">📦</div><div class="kpi-label">Total SKUs</div><div class="kpi-val">${fmt(agg.Total_SKUs)}</div><div class="kpi-sub">processed SKUs</div></div>
-      <div class="kpi-card kb"><div class="kpi-icon">🏢</div><div class="kpi-label">Active Enterprises</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Enterprises'])}</div><div class="kpi-sub">unique clients</div></div>
-      <div class="kpi-card kb"><div class="kpi-icon">📍</div><div class="kpi-label">Active Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Rooftops'])}</div><div class="kpi-sub">unique team IDs</div></div>
-      <div class="kpi-card kp"><div class="kpi-icon">💰</div><div class="kpi-label">Contracted ARR</div><div class="kpi-val">${fmtARR(agg.Total_Contracted_ARR)}</div><div class="kpi-sub">total contracted value</div></div>
-      <div class="kpi-card kb"><div class="kpi-icon">1️⃣</div><div class="kpi-label">V1 Account %</div><div class="kpi-val" style="color:var(--purple)">${(()=>{const total=clean(agg['Total Active Enterprises']);const v1=clean(agg['V1 Enterprises']);return total>0?Math.round(v1/total*1000)/10+'%':'—';})()}</div><div class="kpi-sub">${fmt(agg['V1 Enterprises'])} of ${fmt(agg['Total Active Enterprises'])} enterprises</div></div>
+      <div class="kpi-card kp" onclick="showKpiTrend('images')"><div class="kpi-icon">🖼️</div><div class="kpi-label">Total Images</div><div class="kpi-val">${fmt(agg.Total_Images)}</div><div class="kpi-sub">verified & QC done</div></div>
+      <div class="kpi-card kp" onclick="showKpiTrend('skus')"><div class="kpi-icon">📦</div><div class="kpi-label">Total SKUs</div><div class="kpi-val">${fmt(agg.Total_SKUs)}</div><div class="kpi-sub">processed SKUs</div></div>
+      <div class="kpi-card kb" onclick="showKpiTrend('ent')"><div class="kpi-icon">🏢</div><div class="kpi-label">Active Enterprises</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Enterprises'])}</div><div class="kpi-sub">unique clients</div></div>
+      <div class="kpi-card kb" onclick="showKpiTrend('roof')"><div class="kpi-icon">📍</div><div class="kpi-label">Active Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg['Total Active Rooftops'])}</div><div class="kpi-sub">unique team IDs</div></div>
+      <div class="kpi-card kp" onclick="showKpiTrend('arr')"><div class="kpi-icon">💰</div><div class="kpi-label">Contracted ARR</div><div class="kpi-val">${fmtARR(agg.Total_Contracted_ARR)}</div><div class="kpi-sub">total contracted value</div></div>
+      <div class="kpi-card kb" onclick="showKpiTrend('v1pct')"><div class="kpi-icon">1️⃣</div><div class="kpi-label">V1 Account %</div><div class="kpi-val" style="color:var(--purple)">${(()=>{const total=clean(agg['Total Active Enterprises']);const v1=clean(agg['V1 Enterprises']);return total>0?Math.round(v1/total*1000)/10+'%':'—';})()}</div><div class="kpi-sub">${fmt(agg['V1 Enterprises'])} of ${fmt(agg['Total Active Enterprises'])} enterprises</div></div>
     </div>
 
     <!-- KPI ROW 2: Quality & Accuracy -->
     <div class="sec-label">Quality & Accuracy</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);">
-      <div class="kpi-card ka"><div class="kpi-icon">⏱️</div><div class="kpi-label">Image TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_Image_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per image</div></div>
-      <div class="kpi-card ka"><div class="kpi-icon">⏱️</div><div class="kpi-label">SKU TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_SKU_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per SKU</div></div>
-      <div class="kpi-card kg"><div class="kpi-icon">🎯</div><div class="kpi-label">True Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.true_accuracy).toFixed(2)}%</div><div class="kpi-sub">pre QC tool</div></div>
-      <div class="kpi-card kg"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
-      <div class="kpi-card kp"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
-      <div class="kpi-card kb"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
+      <div class="kpi-card ka" onclick="showKpiTrend('imgtat')"><div class="kpi-icon">⏱️</div><div class="kpi-label">Image TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_Image_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per image</div></div>
+      <div class="kpi-card ka" onclick="showKpiTrend('skutat')"><div class="kpi-icon">⏱️</div><div class="kpi-label">SKU TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_SKU_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per SKU</div></div>
+      <div class="kpi-card kg" onclick="showKpiTrend('trueacc')"><div class="kpi-icon">🎯</div><div class="kpi-label">True Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.true_accuracy).toFixed(2)}%</div><div class="kpi-sub">pre QC tool</div></div>
+      <div class="kpi-card kg" onclick="showKpiTrend('postacc')"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
+      <div class="kpi-card kp" onclick="showKpiTrend('newent')"><div class="kpi-icon">🆕</div><div class="kpi-label">New Enterprises</div><div class="kpi-val">${fmt(agg.New_Enterprises_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
+      <div class="kpi-card kb" onclick="showKpiTrend('newroof')"><div class="kpi-icon">🏠</div><div class="kpi-label">New Rooftops</div><div class="kpi-val" style="color:var(--blue)">${fmt(agg.New_Rooftops_Added)}</div><div class="kpi-sub">first seen in ${activeMonth||'selected month'}</div></div>
     </div>
 
     <!-- ROSTER SECTION -->
