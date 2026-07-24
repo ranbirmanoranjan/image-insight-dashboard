@@ -299,7 +299,6 @@ const KPI_TRENDS = {
   roof:    {label:'Active Rooftops',   color:'#2563EB', calc:a=>clean(a['Total Active Rooftops']),    fmt:v=>fmt(v)},
   arr:     {label:'Contracted ARR',    color:'#7C3AED', calc:a=>clean(a.Total_Contracted_ARR),        fmt:v=>fmtARR(v)},
   v1pct:   {label:'V1 Account %',      color:'#7C3AED', calc:a=>{const t=clean(a['Total Active Enterprises']);const v=clean(a['V1 Enterprises']);return t>0?Math.round(v/t*1000)/10:0;}, fmt:v=>v+'%'},
-  imgtat:  {label:'Image TAT',         color:'#D97706', calc:a=>clean(a.Avg_Image_TAT_Hours),         fmt:v=>Number(v).toFixed(2)+'h'},
   skutat:  {label:'SKU TAT',           color:'#D97706', calc:a=>clean(a.Avg_SKU_TAT_Hours),           fmt:v=>Number(v).toFixed(2)+'h'},
   trueacc: {label:'True Accuracy',     color:'#059669', calc:a=>clean(a.true_accuracy),               fmt:v=>Number(v).toFixed(2)+'%'},
   postacc: {label:'Post QC Accuracy',  color:'#059669', calc:a=>clean(a.post_qc_tool_accuracy),       fmt:v=>Number(v).toFixed(2)+'%'},
@@ -1437,7 +1436,6 @@ function render(){
     <!-- KPI ROW 2: Quality & Accuracy -->
     <div class="sec-label">Quality & Accuracy</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);">
-      <div class="kpi-card ka" onclick="showKpiTrend('imgtat')"><div class="kpi-icon">⏱️</div><div class="kpi-label">Image TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_Image_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per image</div></div>
       <div class="kpi-card ka" onclick="showKpiTrend('skutat')"><div class="kpi-icon">⏱️</div><div class="kpi-label">SKU TAT</div><div class="kpi-val" style="color:var(--amber)">${clean(agg.Avg_SKU_TAT_Hours).toFixed(2)}h</div><div class="kpi-sub">avg hours per SKU</div></div>
       <div class="kpi-card kg" onclick="showKpiTrend('trueacc')"><div class="kpi-icon">🎯</div><div class="kpi-label">True Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.true_accuracy).toFixed(2)}%</div><div class="kpi-sub">pre QC tool</div></div>
       <div class="kpi-card kg" onclick="showKpiTrend('postacc')"><div class="kpi-icon">✅</div><div class="kpi-label">Post QC Accuracy</div><div class="kpi-val" style="color:var(--green)">${clean(agg.post_qc_tool_accuracy).toFixed(2)}%</div><div class="kpi-sub">after QC tool</div></div>
